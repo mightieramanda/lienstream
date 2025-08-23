@@ -193,8 +193,10 @@ export class PuppeteerCountyScraper extends CountyScraper {
         }
       }
 
-      // Click search - use JavaScript for Telerik RadButton components
+      // Click search button with simple, reliable approach  
       if (this.config.selectors.searchButton) {
+        await Logger.info(`Executing search...`, 'county-scraper');
+        
         try {
           // Try JavaScript click first for Telerik components
           await page.evaluate((selector) => {
@@ -207,76 +209,19 @@ export class PuppeteerCountyScraper extends CountyScraper {
           // Fallback to standard click
           await page.click(this.config.selectors.searchButton);
         }
-        // Wait for page to finish loading JavaScript/AJAX after search
-        await new Promise(resolve => setTimeout(resolve, 5000));
         
-        // Wait for either results table or no results message
-        try {
+        // Simple wait for results
+        await new Promise(resolve => setTimeout(resolve, 6000));
+        await Logger.info(`Search completed, proceeding with results...`, 'county-scraper');
+      }
+        
+      // Wait for either results table or no results message
+      try {
           await page.waitForSelector(this.config.selectors.resultsTable!, { timeout: 15000 });
           await Logger.info(`Results table found for ${this.county.name}`, 'county-scraper');
-        } catch (error) {
-          // Try alternative selectors
-          const alternativeSelectors = [
-            'table[id*="GridView"]',
-            'table[id*="ctl00"]', 
-            'table.rgMasterTable',
-            'table',
-            '[id*="GridView1"]'
-          ];
-          
-          for (const selector of alternativeSelectors) {
-            try {
-              await page.waitForSelector(selector, { timeout: 3000 });
-              await Logger.info(`Found alternative results table with selector: ${selector}`, 'county-scraper');
-              // Update config for future use
-              this.config.selectors.resultsTable = selector;
-              break;
-            } catch (e) {
-              // Continue to next selector
-            }
-          }
-          // Check if there's a "no results" message or alternative content
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Extra wait for AJAX
-          
-          const pageContent = await page.content();
-          await Logger.info(`Full page content after search: ${pageContent.substring(0, 2000)}`, 'county-scraper');
-          
-          // Since Maricopa County doesn't support date filtering, log search parameters
-          await Logger.info(`Searched ${this.county.name} for MEDICAL LN documents (all dates). Target date was: ${formatDate(searchStartDate)}`, 'county-scraper');
-          
-          // Check for common "no results" patterns
-          const hasNoResults = pageContent.includes('No records found') || 
-                                pageContent.includes('No documents') ||
-                                pageContent.includes('0 records') ||
-                                pageContent.includes('no matches');
-                                
-          if (hasNoResults) {
-            await Logger.info(`No results found for search in ${this.county.name}`, 'county-scraper');
-            return liens;
-          }
-          
-          // If we have meaningful content but no results table, check for alternative table formats
-          if (pageContent.length > 1000) {
-            // Check for any table or GridView elements
-            const hasAnyTable = pageContent.includes('<table') || pageContent.includes('GridView') || pageContent.includes('ctl00_ContentPlaceHolder1');
-            const hasResultsText = pageContent.includes('result') || pageContent.includes('record') || pageContent.includes('document');
-            
-            await Logger.error(`Results table not found but page loaded. Has tables: ${hasAnyTable}, Has results text: ${hasResultsText}. Content snippet: ${pageContent.substring(0, 1000)}`, 'county-scraper');
-            
-            // Check for any liens data in alternative formats
-            if (pageContent.includes('medical') || pageContent.includes('lien') || pageContent.includes('MEDICAL') || pageContent.includes('LIEN')) {
-              await Logger.info(`Found medical/lien content in page, investigating format`, 'county-scraper');
-            }
-            
-            // Find all table selectors on the page
-            const tableMatches = pageContent.match(/<table[^>]*>/g) || [];
-            const gridViewMatches = pageContent.match(/GridView\d+/g) || [];
-            const idMatches = pageContent.match(/id="[^"]*"/g) || [];
-            
-            await Logger.info(`Found ${tableMatches.length} tables, GridViews: ${gridViewMatches.join(', ')}, IDs: ${idMatches.slice(0, 10).join(', ')}`, 'county-scraper');
-          }
-          throw error;
-        }
+      } catch (error) {
+          // Try alternative selectors and continue processing
+          await Logger.warning(`Primary results table not found, continuing with page analysis...`, 'county-scraper');
       }
 
       // Debug table structure and find actual document links (NOT navigation links)
@@ -443,27 +388,91 @@ export class PuppeteerCountyScraper extends CountyScraper {
 
   private async processSingleLien(page: Page, recordingNumber: string): Promise<ScrapedLien | null> {
     try {
-      // Construct PDF URL using the pattern
-      const pdfUrl = this.config.documentUrlPattern.replace('{recordingNumber}', recordingNumber);
-      await Logger.info(`Navigating to PDF: ${pdfUrl}`, 'county-scraper');
+      // Use the GetRecDataDetail page instead of direct PDF 
+      const detailUrl = `https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataDetail.aspx?rec=${recordingNumber}`;
+      await Logger.info(`Navigating to document details: ${detailUrl}`, 'county-scraper');
       
-      // Navigate to PDF
-      await page.goto(pdfUrl, { timeout: 15000 });
+      // Navigate to document detail page
+      await page.goto(detailUrl, { timeout: 15000 });
       
       // Wait for PDF to load
       await new Promise(resolve => setTimeout(resolve, this.config.delays.pdfLoad));
       await Logger.info(`PDF loaded for ${recordingNumber}, extracting text...`, 'county-scraper');
       
-      // Extract text content from PDF
-      const textContent = await page.evaluate(() => {
-        return document.body.innerText;
+      // Look for document content in the page
+      await Logger.info(`Analyzing page content for recording ${recordingNumber}...`, 'county-scraper');
+      
+      // Check page structure and find document content
+      const pageAnalysis = await page.evaluate(() => {
+        // Look for common document container patterns
+        const contentSelectors = [
+          '[id*="Content"]',
+          '[id*="Document"]', 
+          '[class*="document"]',
+          '[class*="content"]',
+          'iframe',
+          '.main-content',
+          '#main',
+          'table'
+        ];
+        
+        const foundElements = [];
+        
+        contentSelectors.forEach(selector => {
+          const elements = document.querySelectorAll(selector);
+          elements.forEach((el, index) => {
+            const text = el.innerText || el.textContent;
+            if (text && text.length > 50) {
+              foundElements.push({
+                selector: `${selector}[${index}]`,
+                id: el.id,
+                className: el.className,
+                tagName: el.tagName,
+                textLength: text.length,
+                textPreview: text.substring(0, 200)
+              });
+            }
+          });
+        });
+        
+        return {
+          url: window.location.href,
+          title: document.title,
+          totalBodyText: document.body.innerText.length,
+          foundElements: foundElements.slice(0, 10), // Limit to first 10 matches
+          bodyPreview: document.body.innerText.substring(0, 500)
+        };
       });
+      
+      await Logger.info(`Page analysis for ${recordingNumber}: Found ${pageAnalysis.foundElements.length} content elements`, 'county-scraper');
+      await Logger.info(`Page title: "${pageAnalysis.title}", URL: ${pageAnalysis.url}`, 'county-scraper');
+      
+      // Extract text from best content area or fallback to body
+      let textContent = '';
+      if (pageAnalysis.foundElements.length > 0) {
+        // Try to find the most promising content element
+        const bestElement = pageAnalysis.foundElements.find(el => 
+          el.textLength > 1000 && 
+          (el.id.toLowerCase().includes('content') || 
+           el.className.toLowerCase().includes('document') ||
+           el.tagName === 'TABLE')
+        ) || pageAnalysis.foundElements[0];
+        
+        await Logger.info(`Using content from: ${bestElement.selector} (${bestElement.textLength} chars)`, 'county-scraper');
+        
+        textContent = await page.evaluate((selector) => {
+          const element = document.querySelector(selector);
+          return element ? element.innerText || element.textContent : '';
+        }, bestElement.selector);
+      } else {
+        textContent = pageAnalysis.bodyPreview;
+      }
 
       await Logger.info(`Extracted ${textContent.length} characters from PDF ${recordingNumber}`, 'county-scraper');
       await Logger.info(`PDF content preview: "${textContent.substring(0, 200)}"`, 'county-scraper');
       
       // Parse the lien information from the text
-      const lien = await this.parseLienFromText(textContent, recordingNumber, pdfUrl);
+      const lien = await this.parseLienFromText(textContent, recordingNumber, detailUrl);
       
       if (lien) {
         await Logger.info(`Parsed lien ${recordingNumber}: $${lien.amount} - ${lien.debtorName}`, 'county-scraper');
