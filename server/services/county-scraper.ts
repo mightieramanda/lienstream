@@ -84,26 +84,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
     try {
       await Logger.info(`Starting lien scraping for ${this.county.name}`, 'county-scraper');
 
-      // For testing: Create sample lien data to demonstrate Airtable integration
-      if (this.county.name === 'Maricopa County') {
-        // Instead of complex scraping, let's create test data to verify the pipeline works
-        await Logger.info('Creating test lien data to verify Airtable integration', 'county-scraper');
-        
-        const testLien: ScrapedLien = {
-          recordingNumber: 'TEST-2025-001',
-          recordDate: new Date(),
-          debtorName: 'John Test Smith',
-          debtorAddress: '123 Test Street, Phoenix, AZ 85001',
-          amount: 25000,
-          creditorName: 'Phoenix Medical Center',
-          creditorAddress: '456 Hospital Blvd, Phoenix, AZ 85002',
-          documentUrl: `${this.config.baseUrl}/test-document.pdf`
-        };
-        
-        liens.push(testLien);
-        await Logger.success(`Created test lien data for ${this.county.name}: $${testLien.amount}`, 'county-scraper');
-        return liens;
-      }
+      // Real scraping implementation for all counties
 
       // Navigate to the search page
       await page.goto(this.config.searchUrl, {
