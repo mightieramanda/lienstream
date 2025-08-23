@@ -306,13 +306,13 @@ export default function Counties() {
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <strong>Search URL:</strong><br />
-                        <code className="text-xs bg-slate-100 px-2 py-1 rounded">
+                        <code className="text-xs bg-slate-100 px-2 py-1 rounded break-all overflow-hidden">
                           {config.searchUrl}
                         </code>
                       </div>
                       <div>
                         <strong>Document Pattern:</strong><br />
-                        <code className="text-xs bg-slate-100 px-2 py-1 rounded">
+                        <code className="text-xs bg-slate-100 px-2 py-1 rounded break-all overflow-hidden max-w-full inline-block">
                           {config.documentUrlPattern}
                         </code>
                       </div>
