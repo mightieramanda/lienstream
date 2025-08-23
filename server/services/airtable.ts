@@ -4,17 +4,28 @@ import { storage } from '../storage';
 
 interface AirtableRecord {
   fields: {
-    'Recording Number': string;
-    'Record Date': string;
-    'Debtor Name': string;
-    'Debtor Address': string;
-    'Amount': number;
-    'Creditor Name': string;
-    'Creditor Address': string;
-    'Document URL': string;
+    'Name and Lien Amount': string;
     'Status': string;
-    'Phone Number': string;
+    'Source': string;
+    'State (by County)': string;
+    'Document ID': string;
+    'Scrape Batch ID': string;
+    'Recorded Date/Time': string;
+    'Doc Type': string;
+    'Grantor/Grantee Names': string;
+    'Address': string;
+    'Lien Amount': string;
+    'Detail URL': string;
+    'PDF Link': string;
+    'Phone': string;
+    'Phone (All)': string;
     'Email': string;
+    'Email (All)': string;
+    'Confidence Score': number;
+    'Direct Mail Status': string;
+    'Email Status': string;
+    'Dialer Status': string;
+    'Notes/Errors': string;
   };
 }
 
@@ -26,7 +37,7 @@ export class AirtableService {
   constructor() {
     this.apiKey = process.env.AIRTABLE_API_KEY || process.env.AIRTABLE_TOKEN || '';
     this.baseId = process.env.AIRTABLE_BASE_ID || '';
-    this.tableId = process.env.AIRTABLE_TABLE_ID || 'Leads';
+    this.tableId = 'All Medical Liens'; // Updated to match user's table name
     
     if (!this.apiKey || !this.baseId) {
       Logger.warning('Airtable credentials not configured', 'airtable');
@@ -42,20 +53,44 @@ export class AirtableService {
     try {
       await Logger.info(`Starting Airtable sync for ${liens.length} liens`, 'airtable');
 
-      const records: AirtableRecord[] = liens.map(lien => ({
-        fields: {
-          'Recording Number': lien.recordingNumber,
-          'Record Date': lien.recordDate.toISOString().split('T')[0],
-          'Debtor Name': lien.debtorName,
-          'Debtor Address': lien.debtorAddress || '',
-          'Amount': parseFloat(lien.amount),
-          'Creditor Name': lien.creditorName || '',
-          'Creditor Address': lien.creditorAddress || '',
-          'Document URL': lien.documentUrl || '',
-          'Status': lien.status,
-          'Phone Number': '',
-          'Email': ''
-        }
+      // Generate batch ID for this scrape session
+      const batchId = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+      
+      const records: AirtableRecord[] = await Promise.all(liens.map(async (lien) => {
+        // Get county information
+        const county = await storage.getCounty(lien.countyId);
+        const countyName = county?.name || 'Unknown County';
+        const stateName = county?.state || 'Unknown State';
+        
+        // Format lien amount as currency
+        const formattedAmount = `$${parseFloat(lien.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        
+        return {
+          fields: {
+            'Name and Lien Amount': `${lien.debtorName} – ${formattedAmount}`,
+            'Status': 'New',
+            'Source': `${countyName} Lien`,
+            'State (by County)': stateName,
+            'Document ID': lien.recordingNumber,
+            'Scrape Batch ID': batchId,
+            'Recorded Date/Time': lien.recordDate.toISOString(),
+            'Doc Type': 'Medical Lien', // Could be enhanced with actual doc type
+            'Grantor/Grantee Names': `${lien.debtorName}${lien.creditorName ? ` / ${lien.creditorName}` : ''}`,
+            'Address': lien.debtorAddress || '',
+            'Lien Amount': formattedAmount,
+            'Detail URL': '', // Would be county search result URL
+            'PDF Link': lien.documentUrl || '',
+            'Phone': '',
+            'Phone (All)': '',
+            'Email': '',
+            'Email (All)': '',
+            'Confidence Score': 85, // Base confidence, will be updated with enrichment
+            'Direct Mail Status': '',
+            'Email Status': '',
+            'Dialer Status': '',
+            'Notes/Errors': ''
+          }
+        };
       }));
 
       // Batch create records (Airtable allows up to 10 records per request)
@@ -83,7 +118,7 @@ export class AirtableService {
           // Update local records with Airtable IDs
           for (let i = 0; i < result.records.length; i++) {
             const airtableRecord = result.records[i];
-            const originalRecordingNumber = batch[i].fields['Recording Number'];
+            const originalRecordingNumber = batch[i].fields['Document ID'];
             
             await storage.updateLienAirtableId(originalRecordingNumber, airtableRecord.id);
           }
@@ -123,8 +158,19 @@ export class AirtableService {
       }
 
       const updateFields: any = {};
-      if (phoneNumber) updateFields['Phone Number'] = phoneNumber;
-      if (email) updateFields['Email'] = email;
+      if (phoneNumber) {
+        updateFields['Phone'] = phoneNumber;
+        updateFields['Phone (All)'] = phoneNumber; // Could be enhanced to append multiple numbers
+      }
+      if (email) {
+        updateFields['Email'] = email;
+        updateFields['Email (All)'] = email; // Could be enhanced to append multiple emails
+      }
+      
+      // Update confidence score when enrichment data is added
+      if (phoneNumber || email) {
+        updateFields['Confidence Score'] = 95; // Higher confidence with contact info
+      }
 
       if (Object.keys(updateFields).length === 0) {
         return;
