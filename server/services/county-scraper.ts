@@ -159,10 +159,9 @@ export class PuppeteerCountyScraper extends CountyScraper {
         }
       }
 
-      // Use TODAY's date range since you mentioned you can see liens on "21st of this month"
-      const today = new Date();
-      const searchStartDate = startDate || new Date(today.getFullYear(), today.getMonth(), 21); // 21st of current month
-      const searchEndDate = endDate || new Date(today.getFullYear(), today.getMonth(), 21);
+      // Use specific test dates: 8/20/2025 to 8/21/2025
+      const searchStartDate = startDate || new Date('2025-08-20');
+      const searchEndDate = endDate || new Date('2025-08-21');
 
       const formatDate = (date: Date) => {
         // Legacy site uses MM/DD/YYYY format
