@@ -69,30 +69,12 @@ export class AirtableService {
         
         return {
           fields: {
-            'Name and Lien Amount': `${lien.debtorName} – ${formattedAmount}`,
             'Status': 'New',
             'County Name': countyName,
-            'State (by County)': stateName,
             'Document ID': lien.recordingNumber,
             'Scrape Batch ID': batchId,
-            'Recorded Date/Time': lien.recordDate.toISOString(),
-            'Doc Type': 'Medical Lien',
             'Grantor/Grantee Names': `${lien.debtorName}${lien.creditorName ? ` / ${lien.creditorName}` : ''}`,
-            'Address': lien.debtorAddress || '',
-            'Lien Amount': formattedAmount,
-            'Detail URL': '', // Would be county search result URL
-            'PDF Link': lien.documentUrl || '',
-            'Creditor Name': lien.creditorName || '',
-            'Phone': '',
-            'Phone (All)': '',
-            'Email': '',
-            'Email (All)': '',
-            'Confidence Score': 85, // Base confidence, will be updated with enrichment
-            'Direct Mail Status': '',
-            'Email Status': '',
-            'Dialer Status': '',
-            'Notes/Errors': '',
-            'Last Updated': new Date().toISOString()
+            'Lien Amount': parseFloat(lien.amount)
           }
         };
       }));
