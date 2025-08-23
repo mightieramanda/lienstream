@@ -97,7 +97,7 @@ export class MemStorage implements IStorage {
         documentUrlPattern: 'https://legacy.recorder.maricopa.gov/UnOfficialDocs/pdf/{recordingNumber}.pdf',
         selectors: {
           documentTypeField: 'select[name="ctl00$ContentPlaceHolder1$ddlDocCodes"]',
-          documentTypeValue: 'HL',
+          documentTypeValue: 'MEDICAL LN-FOR MOSTMEDICAL/HOSP/CHIRO LIENTYPES',
           startDateField: '#ctl00_ContentPlaceHolder1_RadDateInputBegin',
           endDateField: '#ctl00_ContentPlaceHolder1_RadDateInputEnd',
           searchButton: '#ctl00_ContentPlaceHolder1_btnSearch2',

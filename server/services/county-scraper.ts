@@ -63,7 +63,10 @@ export class PuppeteerCountyScraper extends CountyScraper {
           '--disable-dev-shm-usage',
           '--disable-accelerated-2d-canvas',
           '--disable-gpu',
-          '--window-size=1920x1080'
+          '--window-size=1920x1080',
+          '--disable-blink-features=AutomationControlled',
+          '--disable-web-security',
+          '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36'
         ]
       });
       await Logger.info(`Puppeteer browser initialized for ${this.county.name}`, 'county-scraper');
@@ -79,6 +82,18 @@ export class PuppeteerCountyScraper extends CountyScraper {
     }
 
     const page = await this.browser!.newPage();
+    
+    // Advanced anti-detection setup
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36');
+    await page.setViewport({ width: 1920, height: 1080 });
+    
+    // Remove automation indicators that Cloudflare detects
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+      window.chrome = { runtime: {} };
+      Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+      Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+    });
     const liens: ScrapedLien[] = [];
 
     try {
@@ -92,15 +107,61 @@ export class PuppeteerCountyScraper extends CountyScraper {
         timeout: 30000
       });
 
-      // Set document type if specified
-      if (this.config.selectors.documentTypeField && this.config.selectors.documentTypeValue) {
-        await page.waitForSelector(this.config.selectors.documentTypeField, { timeout: 10000 });
-        await page.select(this.config.selectors.documentTypeField, this.config.selectors.documentTypeValue);
+      // Handle Cloudflare or similar protection screens
+      let pageTitle = await page.title();
+      await Logger.info(`Initial page title: "${pageTitle}"`, 'county-scraper');
+      
+      if (pageTitle.includes('Just a moment') || pageTitle.includes('Checking') || pageTitle.includes('Please wait')) {
+        await Logger.info('Detected bot protection screen, waiting for real page...', 'county-scraper');
+        
+        // Wait for Cloudflare to pass us through (up to 15 seconds)
+        try {
+          await page.waitForFunction(() => {
+            return !document.title.includes('Just a moment') && 
+                   !document.title.includes('Checking') && 
+                   !document.title.includes('Please wait') &&
+                   document.querySelectorAll('select').length > 0;
+          }, { timeout: 15000 });
+          
+          pageTitle = await page.title();
+          await Logger.info(`Protection passed, real page title: "${pageTitle}"`, 'county-scraper');
+        } catch (error) {
+          await Logger.error(`Bot protection timeout: ${error}`, 'county-scraper');
+        }
       }
 
-      // Set date range (broader July range to find medical liens)
-      const searchStartDate = startDate || new Date('2025-07-01');
-      const searchEndDate = endDate || new Date('2025-07-31');
+      // Now investigate the actual page structure
+      const pageContent = await page.content();
+      const hasDocumentCode = pageContent.includes('Document Code');
+      const hasMedicalLn = pageContent.includes('MEDICAL LN');
+      await Logger.info(`Real page - Document Code: ${hasDocumentCode}, MEDICAL LN: ${hasMedicalLn}`, 'county-scraper');
+      
+      // Find all select elements for debugging the real selectors
+      const selects = await page.$$eval('select', elements => 
+        elements.map(el => ({ 
+          id: el.id, 
+          name: el.name, 
+          className: el.className,
+          optionCount: el.options.length,
+          medicalOptions: Array.from(el.options).filter(opt => (opt.text || opt.value).toLowerCase().includes('medical')).map(opt => opt.text || opt.value)
+        }))
+      );
+      await Logger.info(`Found ${selects.length} select elements. Medical options: ${JSON.stringify(selects.filter(s => s.medicalOptions.length > 0))}`, 'county-scraper');
+
+      // Set document type if specified
+      if (this.config.selectors.documentTypeField && this.config.selectors.documentTypeValue) {
+        try {
+          await page.waitForSelector(this.config.selectors.documentTypeField, { timeout: 10000 });
+          await page.select(this.config.selectors.documentTypeField, this.config.selectors.documentTypeValue);
+        } catch (error) {
+          await Logger.error(`Document type selector failed: ${error}. Current selectors may be outdated for new site.`, 'county-scraper');
+          // Don't throw - continue to investigate page structure
+        }
+      }
+
+      // Set date range - much broader range to find medical liens for testing
+      const searchStartDate = startDate || new Date('2025-01-01'); // Start of 2025
+      const searchEndDate = endDate || new Date(); // today
 
       const formatDate = (date: Date) => {
         // Maricopa County uses MM/DD/YYYY format

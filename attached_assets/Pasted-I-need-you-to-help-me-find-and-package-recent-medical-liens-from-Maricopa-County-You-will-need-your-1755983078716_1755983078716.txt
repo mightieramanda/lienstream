@@ -1,0 +1,18 @@
+I need you to help me find and package recent medical liens from Maricopa County. You will need your web browser.
+Visit this page: https://recorder.maricopa.gov/recording/document-search.html
+Scroll down to the "Document Code" section and select "MEDICAL LN – for most medical/hosp/chiro lien types."
+Set the beginning date as yesterday and the end date as today.
+Click Search and wait for the results to load.
+Once the results page loads, note how many records were returned. You will need to check each record.
+For each record:
+Click the Recording Number in the table to open the record details.
+Copy the recording number (for example, 20250461658).
+ • The built‑in "PDF – All pages" button sometimes fails because the site blocks pop‑ups.
+ • Instead, open a new tab and enter https://legacy.recorder.maricopa.gov/UnOfficialDocs/pdf/RECORDNUMBER.pdf (replace RECORDNUMBER with the number you just copied).
+ • If the PDF opens but is blank, click the download icon (down‑arrow) in the viewer; this forces the document to load.
+In the PDF, look for the line that reads "Amount claimed due for care of patient as of date of recording."
+If the amount is greater than $20,000, download the PDF and append a row of relevant details from the document into the Google sheet (I will provide headers later).
+If the amount is less than $20,000, close the tab and proceed to the next record.
+Repeat Step 6 for all records in the result set.
+When finished, provide me with a csv of the rows you appended for liens over $20,000 and a ZIP file containing all of the downloaded PDFs.
+If you run into errors, you can try this workaround when the "PDF – All pages" button wouldn't open the document: Copy the recording number from the search results (e.g., 20250461658). Manually build the PDF URL in your browser's address bar using the following pattern: https://legacy.recorder.maricopa.gov/UnOfficialDocs/pdf/RECORDNUMBER.pdf Replace RECORDNUMBER with the recording number you want to view. For example, to view record 20250461658, use: https://legacy.recorder.maricopa.gov/UnOfficialDocs/pdf/20250461658.pdf Press Enter to load the PDF directly. If the PDF viewer shows a blank page at first (a common issue), click the download icon (down-arrow) in the toolbar. This forces the PDF to load normally so you can view the contents in the browser. Once the PDF is displayed, look for the line "Amount claimed due for care of patient as of date of recording" to check the lien amount and decide whether it meets your threshold. Using the direct URL bypassed the blocked pop‑up and allowed me to access each lien document.
