@@ -133,9 +133,9 @@ export class MemStorage implements IStorage {
       isActive: true,
       config: {
         scrapeType: 'puppeteer',
-        baseUrl: 'https://www.recorder.pima.gov',
-        searchUrl: 'https://www.recorder.pima.gov/search/index.php?act=s',
-        documentUrlPattern: 'https://www.recorder.pima.gov/search/index.php?act=v&docno={recordingNumber}',
+        baseUrl: 'https://pimacountyaz-web.tylerhost.net',
+        searchUrl: 'https://pimacountyaz-web.tylerhost.net/web/login/search',
+        documentUrlPattern: 'https://pimacountyaz-web.tylerhost.net/web/document/{recordingNumber}?search={searchId}',
         selectors: {
           documentTypeField: 'select[name="tp"]',
           documentTypeValue: 'HOSPITAL LIEN',
@@ -165,7 +165,7 @@ export class MemStorage implements IStorage {
     };
     this.counties.set(pimaId, pima);
 
-    // Pinal County
+    // Pinal County  
     const pinalId = randomUUID();
     const pinal: County = {
       id: pinalId,
@@ -174,9 +174,9 @@ export class MemStorage implements IStorage {
       isActive: true,
       config: {
         scrapeType: 'puppeteer',
-        baseUrl: 'https://countydocuments.pinalcountyaz.gov',
-        searchUrl: 'https://countydocuments.pinalcountyaz.gov/WebSearch/SelfService/SearchTypes.aspx',
-        documentUrlPattern: 'https://countydocuments.pinalcountyaz.gov/WebSearch/ViewDocument.aspx?docId={recordingNumber}',
+        baseUrl: 'https://acclaim.pinalcountyaz.gov',
+        searchUrl: 'https://acclaim.pinalcountyaz.gov/AcclaimWeb/search',
+        documentUrlPattern: 'https://acclaim.pinalcountyaz.gov/AcclaimWeb/Details/',
         selectors: {
           documentTypeField: 'select[id*="DocType"]',
           documentTypeValue: 'LIEN H - HEALTH CARE, HOSPITAL LIEN',
@@ -185,7 +185,8 @@ export class MemStorage implements IStorage {
           searchButton: 'input[type="submit"][value*="Search"]',
           resultsTable: '.search-results',
           recordingNumberLinks: '.search-results tr td a',
-          lightboxTrigger: '.document-link'
+          lightboxTrigger: '.document-link',
+          lightboxContent: '.lightbox-content, .modal-content, .popup-content'
         },
         parsing: {
           amountPattern: 'Amount claimed due for care of patient as of date of recording[:\\s]*\\$?([\\d,]+\\.?\\d*)',
@@ -197,7 +198,8 @@ export class MemStorage implements IStorage {
           pageLoad: 4000,
           betweenRequests: 2000,
           pdfLoad: 4000,
-          lightboxWait: 3000
+          lightboxWait: 3000,
+          lightboxLoad: 2000
         },
         authentication: {
           type: 'none'
