@@ -77,6 +77,14 @@ export class PuppeteerCountyScraper extends CountyScraper {
   }
 
   async scrapeCountyLiens(startDate?: Date, endDate?: Date): Promise<ScrapedLien[]> {
+    // 🚨 MULTIPLE DEBUG METHODS TO ISOLATE ISSUE
+    console.log(`🚨🚨🚨 CONSOLE.LOG: Method entry for ${this.county?.name || 'UNKNOWN'}`);
+    try {
+      await Logger.info(`🚨 LOGGER.INFO: Method entry for ${this.county.name}`, 'county-scraper');
+      await Logger.error(`🚨 LOGGER.ERROR: Method entry for ${this.county.name}`, 'county-scraper');
+    } catch (logError) {
+      console.log(`🚨 LOGGER FAILED: ${logError}`);
+    }
     if (!this.browser) {
       await this.initialize();
     }
@@ -148,23 +156,38 @@ export class PuppeteerCountyScraper extends CountyScraper {
       );
       await Logger.info(`Found ${selects.length} select elements. Medical options: ${JSON.stringify(selects.filter(s => s.medicalOptions.length > 0))}`, 'county-scraper');
 
-      // Set document type if specified
-      await Logger.info(`About to process document type selection...`, 'county-scraper');
-      if (this.config.selectors.documentTypeField && this.config.selectors.documentTypeValue) {
-        await Logger.info(`Document type field: ${this.config.selectors.documentTypeField}`, 'county-scraper');
-        await Logger.info(`Document type value: ${this.config.selectors.documentTypeValue}`, 'county-scraper');
-        try {
-          await page.waitForSelector(this.config.selectors.documentTypeField, { timeout: 10000 });
-          await page.select(this.config.selectors.documentTypeField, this.config.selectors.documentTypeValue);
-          await Logger.info(`Document type selection completed successfully`, 'county-scraper');
-        } catch (error) {
-          await Logger.error(`Document type selector failed: ${error}. Current selectors may be outdated for new site.`, 'county-scraper');
-          // Don't throw - continue to investigate page structure
+      await Logger.info(`🔍 DEBUG: After select elements, about to start form processing...`, 'county-scraper');
+      await Logger.info(`🔍 DEBUG: Current URL: ${page.url()}`, 'county-scraper');
+      
+      // Check if we accidentally have a return statement or early exit
+      await Logger.info(`🔍 DEBUG: Execution continuing to document type section...`, 'county-scraper');
+
+      // WRAP ENTIRE FORM PROCESSING IN TRY-CATCH
+      try {
+        await Logger.info(`🔍 STARTING FORM PROCESSING SECTION`, 'county-scraper');
+        
+        // Set document type if specified
+      await Logger.info(`CHECKPOINT A: About to process document type selection...`, 'county-scraper');
+      try {
+        if (this.config.selectors.documentTypeField && this.config.selectors.documentTypeValue) {
+          await Logger.info(`CHECKPOINT B: Document type field: ${this.config.selectors.documentTypeField}`, 'county-scraper');
+          await Logger.info(`CHECKPOINT C: Document type value: ${this.config.selectors.documentTypeValue}`, 'county-scraper');
+          try {
+            await page.waitForSelector(this.config.selectors.documentTypeField, { timeout: 10000 });
+            await page.select(this.config.selectors.documentTypeField, this.config.selectors.documentTypeValue);
+            await Logger.info(`CHECKPOINT D: Document type selection completed successfully`, 'county-scraper');
+          } catch (docError) {
+            await Logger.error(`Document type selector failed: ${docError}. Current selectors may be outdated for new site.`, 'county-scraper');
+            // Don't throw - continue to investigate page structure
+          }
+        } else {
+          await Logger.info(`CHECKPOINT E: No document type configuration found, skipping...`, 'county-scraper');
         }
-      } else {
-        await Logger.info(`No document type configuration found, skipping...`, 'county-scraper');
+        await Logger.info(`CHECKPOINT F: Moving to date field configuration...`, 'county-scraper');
+      } catch (globalError) {
+        await Logger.error(`CRITICAL ERROR in document type section: ${globalError}`, 'county-scraper');
+        await Logger.error(`Stack trace: ${globalError.stack}`, 'county-scraper');
       }
-      await Logger.info(`Moving to date field configuration...`, 'county-scraper');
 
       // Use specific test dates: 8/21/2025 to 8/22/2025 (user confirmed has results)
       const searchStartDate = startDate || new Date('2025-08-21');
@@ -179,11 +202,11 @@ export class PuppeteerCountyScraper extends CountyScraper {
       };
 
       // Debug configuration
-      await Logger.info(`Date field configuration check:`, 'county-scraper');
-      await Logger.info(`  startDateField: ${this.config.selectors.startDateField || 'NOT DEFINED'}`, 'county-scraper');
-      await Logger.info(`  endDateField: ${this.config.selectors.endDateField || 'NOT DEFINED'}`, 'county-scraper');
-      await Logger.info(`  searchStartDate: ${formatDate(searchStartDate)}`, 'county-scraper');
-      await Logger.info(`  searchEndDate: ${formatDate(searchEndDate)}`, 'county-scraper');
+      await Logger.info(`CHECKPOINT G: Starting date field configuration check:`, 'county-scraper');
+      await Logger.info(`CHECKPOINT H: startDateField: ${this.config.selectors.startDateField || 'NOT DEFINED'}`, 'county-scraper');
+      await Logger.info(`CHECKPOINT I: endDateField: ${this.config.selectors.endDateField || 'NOT DEFINED'}`, 'county-scraper');
+      await Logger.info(`CHECKPOINT J: searchStartDate: ${formatDate(searchStartDate)}`, 'county-scraper');
+      await Logger.info(`CHECKPOINT K: searchEndDate: ${formatDate(searchEndDate)}`, 'county-scraper');
 
       if (this.config.selectors.startDateField) {
         await Logger.info(`Attempting to fill start date field with: ${formatDate(searchStartDate)}`, 'county-scraper');
@@ -371,6 +394,15 @@ export class PuppeteerCountyScraper extends CountyScraper {
       if (!documentsFound) {
         await Logger.warning(`All ${maxSearchAttempts} search attempts returned calendar interface. Using fallback numbers for PDF testing.`, 'county-scraper');
       }
+      
+      await Logger.info(`🔍 FORM PROCESSING SECTION COMPLETED SUCCESSFULLY`, 'county-scraper');
+      
+      } catch (formProcessingError) {
+        await Logger.error(`🚨 CRITICAL: Exception in form processing section: ${formProcessingError}`, 'county-scraper');
+        await Logger.error(`🚨 STACK TRACE: ${formProcessingError.stack}`, 'county-scraper');
+        await Logger.error(`🚨 This is why the search execution is being skipped!`, 'county-scraper');
+        // Continue with table analysis even if form processing fails
+      }
         
       // Wait for either results table or no results message
       try {
@@ -381,6 +413,10 @@ export class PuppeteerCountyScraper extends CountyScraper {
           await Logger.warning(`Primary results table not found, continuing with page analysis...`, 'county-scraper');
       }
 
+      // 🚨 DEBUG: How did we get here without any earlier logs?
+      console.log(`🚨🚨🚨 EXECUTION JUMPED TO TABLE ANALYSIS - This should not happen!`);
+      await Logger.error(`🚨 EXECUTION JUMPED TO TABLE ANALYSIS WITHOUT FORM PROCESSING!`, 'county-scraper');
+      
       // Debug table structure and find actual document links (NOT navigation links)
       const tableDebugInfo = await page.evaluate(() => {
         const table = document.querySelector('table[id="ctl00_ContentPlaceHolder1_GridView1"], table[id*="ctl00"]');
