@@ -443,37 +443,160 @@ export class PuppeteerCountyScraper extends CountyScraper {
 
   private async processSingleLien(page: Page, recordingNumber: string): Promise<ScrapedLien | null> {
     try {
-      // Use direct PDF URL as suggested by user
-      const pdfUrl = `https://legacy.recorder.maricopa.gov/UnOfficialDocs/pdf/${recordingNumber}.pdf`;
-      await Logger.info(`Navigating to PDF: ${pdfUrl}`, 'county-scraper');
+      await Logger.info(`Looking for recording number ${recordingNumber} in results table to open lightbox`, 'county-scraper');
       
-      // Navigate to PDF
-      await page.goto(pdfUrl, { timeout: 15000 });
+      // Find the recording number in the results table and click to open lightbox
+      const foundAndClicked = await page.evaluate((targetNumber) => {
+        const table = document.querySelector('table[id*="GridView"], table[id*="ctl00"]');
+        if (!table) return false;
+        
+        const allLinks = table.querySelectorAll('a');
+        for (const link of allLinks) {
+          const linkText = link.textContent?.trim() || '';
+          
+          // Find the exact recording number
+          if (linkText === targetNumber) {
+            // Look for a PDF or document link in the same row
+            const row = link.closest('tr');
+            if (row) {
+              // Look for the final column or a PDF link in this row
+              const cells = row.querySelectorAll('td');
+              const lastCell = cells[cells.length - 1];
+              
+              // Try to find a clickable element in the last cell (common for PDF access)
+              const pdfLink = lastCell?.querySelector('a, button, [onclick]') || 
+                            row.querySelector('a[href*="pdf"], a[onclick*="pdf"], a[onclick*="document"]') ||
+                            link; // Fallback to the recording number link itself
+              
+              if (pdfLink) {
+                (pdfLink as HTMLElement).click();
+                return true;
+              }
+            }
+          }
+        }
+        return false;
+      }, recordingNumber);
       
-      // Wait for PDF to load
-      await new Promise(resolve => setTimeout(resolve, this.config.delays.pdfLoad));
-      await Logger.info(`PDF loaded for ${recordingNumber}, extracting text...`, 'county-scraper');
-      
-      // Extract text content from PDF
-      const textContent = await page.evaluate(() => {
-        return document.body.innerText;
-      });
-
-      await Logger.info(`Extracted ${textContent.length} characters from PDF ${recordingNumber}`, 'county-scraper');
-      await Logger.info(`PDF content preview: "${textContent.substring(0, 200)}"`, 'county-scraper');
-      
-      // Parse the lien information from the text
-      const lien = await this.parseLienFromText(textContent, recordingNumber, pdfUrl);
-      
-      if (lien) {
-        await Logger.info(`Parsed lien ${recordingNumber}: $${lien.amount} - ${lien.debtorName}`, 'county-scraper');
-      } else {
-        await Logger.info(`Could not parse lien data from ${recordingNumber}`, 'county-scraper');
+      if (!foundAndClicked) {
+        await Logger.warning(`Could not find or click recording number ${recordingNumber} in results table`, 'county-scraper');
+        return null;
       }
       
-      return lien;
+      await Logger.info(`Clicked recording ${recordingNumber}, waiting for lightbox to open...`, 'county-scraper');
+      
+      // Wait for lightbox/modal to appear (common selectors for modals)
+      let lightboxContent = '';
+      try {
+        await page.waitForSelector('div[class*="modal"], div[class*="lightbox"], div[class*="popup"], iframe, .modal, .lightbox', 
+          { timeout: 10000 });
+        
+        await Logger.info(`Lightbox opened for ${recordingNumber}, extracting PDF content...`, 'county-scraper');
+        
+        // Try multiple methods to extract content from lightbox
+        lightboxContent = await page.evaluate(() => {
+          // Look for common lightbox/modal selectors
+          const selectors = [
+            'div[class*="modal"] iframe',
+            'div[class*="lightbox"] iframe', 
+            'div[class*="popup"] iframe',
+            'iframe[src*="pdf"]',
+            '.modal iframe',
+            '.lightbox iframe',
+            'iframe',  // fallback to any iframe
+            'div[class*="modal"]',
+            'div[class*="lightbox"]',
+            '.modal',
+            '.lightbox'
+          ];
+          
+          for (const selector of selectors) {
+            const element = document.querySelector(selector);
+            if (element) {
+              if (element.tagName === 'IFRAME') {
+                try {
+                  // Try to access iframe content if same-origin
+                  const iframeDoc = (element as HTMLIFrameElement).contentDocument;
+                  if (iframeDoc) {
+                    return iframeDoc.body?.innerText || iframeDoc.body?.textContent || '';
+                  }
+                } catch (e) {
+                  // Cross-origin iframe, can't access content directly
+                }
+                return `IFRAME_FOUND: ${(element as HTMLIFrameElement).src}`;
+              } else {
+                return element.textContent || element.innerHTML || '';
+              }
+            }
+          }
+          
+          return '';
+        });
+        
+      } catch (waitError) {
+        await Logger.warning(`No lightbox appeared for ${recordingNumber}, trying direct content extraction: ${waitError}`, 'county-scraper');
+        
+        // Fallback: try to extract any new content that appeared on the page
+        lightboxContent = await page.evaluate(() => {
+          return document.body.innerText || document.body.textContent || '';
+        });
+      }
+      
+      if (lightboxContent && lightboxContent.length > 50) {
+        await Logger.info(`Extracted ${lightboxContent.length} characters from lightbox for ${recordingNumber}`, 'county-scraper');
+        await Logger.info(`Lightbox content preview: "${lightboxContent.substring(0, 200)}"`, 'county-scraper');
+        
+        // Parse the content to extract lien information
+        const lien = await this.parseLienFromText(lightboxContent, recordingNumber, `lightbox-${recordingNumber}`);
+        
+        // Close lightbox/modal before moving to next lien
+        try {
+          await page.evaluate(() => {
+            // Try to close modal/lightbox with common methods
+            const closeSelectors = [
+              'button[class*="close"]',
+              'a[class*="close"]', 
+              '[onclick*="close"]',
+              'button[aria-label="Close"]',
+              '.modal button',
+              '.lightbox button',
+              '[data-dismiss="modal"]'
+            ];
+            
+            for (const selector of closeSelectors) {
+              const closeBtn = document.querySelector(selector);
+              if (closeBtn) {
+                (closeBtn as HTMLElement).click();
+                return;
+              }
+            }
+            
+            // Try pressing Escape key
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+          });
+          
+          // Wait a moment for lightbox to close
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+        } catch (closeError) {
+          await Logger.warning(`Could not close lightbox for ${recordingNumber}: ${closeError}`, 'county-scraper');
+        }
+        
+        if (lien) {
+          await Logger.info(`Parsed lien ${recordingNumber}: $${lien.amount} - ${lien.debtorName}`, 'county-scraper');
+        } else {
+          await Logger.info(`Could not parse lien data from ${recordingNumber}`, 'county-scraper');
+        }
+        
+        return lien;
+        
+      } else {
+        await Logger.warning(`No content extracted from lightbox for ${recordingNumber}`, 'county-scraper');
+        return null;
+      }
+      
     } catch (error) {
-      await Logger.warning(`Failed to process PDF for ${recordingNumber} from ${this.county.name}: ${error}`, 'county-scraper');
+      await Logger.error(`Failed to process lien ${recordingNumber} via lightbox: ${error}`, 'county-scraper');
       return null;
     }
   }
