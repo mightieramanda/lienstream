@@ -8,6 +8,8 @@ interface AirtableRecord {
     'Status': string;
     'Source': string;
     'State (by County)': string;
+    'County Name': string;
+    'Creditor Name': string;
     'Document ID': string;
     'Scrape Batch ID': string;
     'Recorded Date/Time': string;
@@ -22,10 +24,12 @@ interface AirtableRecord {
     'Email': string;
     'Email (All)': string;
     'Confidence Score': number;
+    'Enrichment Status': string;
     'Direct Mail Status': string;
     'Email Status': string;
     'Dialer Status': string;
     'Notes/Errors': string;
+    'Last Updated': string;
   };
 }
 
@@ -71,6 +75,8 @@ export class AirtableService {
             'Status': 'New',
             'Source': `${countyName} Lien`,
             'State (by County)': stateName,
+            'County Name': countyName,
+            'Creditor Name': lien.creditorName || '',
             'Document ID': lien.recordingNumber,
             'Scrape Batch ID': batchId,
             'Recorded Date/Time': lien.recordDate.toISOString(),
@@ -85,10 +91,12 @@ export class AirtableService {
             'Email': '',
             'Email (All)': '',
             'Confidence Score': 85, // Base confidence, will be updated with enrichment
+            'Enrichment Status': 'Pending',
             'Direct Mail Status': '',
             'Email Status': '',
             'Dialer Status': '',
-            'Notes/Errors': ''
+            'Notes/Errors': '',
+            'Last Updated': new Date().toISOString()
           }
         };
       }));
@@ -167,10 +175,14 @@ export class AirtableService {
         updateFields['Email (All)'] = email; // Could be enhanced to append multiple emails
       }
       
-      // Update confidence score when enrichment data is added
+      // Update confidence score and enrichment status when enrichment data is added
       if (phoneNumber || email) {
         updateFields['Confidence Score'] = 95; // Higher confidence with contact info
+        updateFields['Enrichment Status'] = 'Completed';
       }
+      
+      // Always update the Last Updated timestamp
+      updateFields['Last Updated'] = new Date().toISOString();
 
       if (Object.keys(updateFields).length === 0) {
         return;
