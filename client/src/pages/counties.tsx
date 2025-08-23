@@ -313,7 +313,7 @@ export default function Counties() {
                       <div>
                         <strong>Document Pattern:</strong><br />
                         <code className="text-xs bg-slate-100 px-2 py-1 rounded break-all overflow-hidden max-w-full inline-block">
-                          {config.documentUrlPattern}
+                          {config.documentUrlPattern || "Dynamic/Search-based retrieval"}
                         </code>
                       </div>
                       <div>

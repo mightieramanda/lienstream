@@ -135,7 +135,7 @@ export class MemStorage implements IStorage {
         scrapeType: 'puppeteer',
         baseUrl: 'https://www.recorder.pima.gov',
         searchUrl: 'https://www.recorder.pima.gov/search/index.php?act=s',
-        documentUrlPattern: '',
+        documentUrlPattern: 'https://www.recorder.pima.gov/search/index.php?act=v&docno={recordingNumber}',
         selectors: {
           documentTypeField: 'select[name="tp"]',
           documentTypeValue: 'HOSPITAL LIEN',
@@ -176,7 +176,7 @@ export class MemStorage implements IStorage {
         scrapeType: 'puppeteer',
         baseUrl: 'https://countydocuments.pinalcountyaz.gov',
         searchUrl: 'https://countydocuments.pinalcountyaz.gov/WebSearch/SelfService/SearchTypes.aspx',
-        documentUrlPattern: '',
+        documentUrlPattern: 'https://countydocuments.pinalcountyaz.gov/WebSearch/ViewDocument.aspx?docId={recordingNumber}',
         selectors: {
           documentTypeField: 'select[id*="DocType"]',
           documentTypeValue: 'LIEN H - HEALTH CARE, HOSPITAL LIEN',
