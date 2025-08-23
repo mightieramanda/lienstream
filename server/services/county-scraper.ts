@@ -149,19 +149,26 @@ export class PuppeteerCountyScraper extends CountyScraper {
       await Logger.info(`Found ${selects.length} select elements. Medical options: ${JSON.stringify(selects.filter(s => s.medicalOptions.length > 0))}`, 'county-scraper');
 
       // Set document type if specified
+      await Logger.info(`About to process document type selection...`, 'county-scraper');
       if (this.config.selectors.documentTypeField && this.config.selectors.documentTypeValue) {
+        await Logger.info(`Document type field: ${this.config.selectors.documentTypeField}`, 'county-scraper');
+        await Logger.info(`Document type value: ${this.config.selectors.documentTypeValue}`, 'county-scraper');
         try {
           await page.waitForSelector(this.config.selectors.documentTypeField, { timeout: 10000 });
           await page.select(this.config.selectors.documentTypeField, this.config.selectors.documentTypeValue);
+          await Logger.info(`Document type selection completed successfully`, 'county-scraper');
         } catch (error) {
           await Logger.error(`Document type selector failed: ${error}. Current selectors may be outdated for new site.`, 'county-scraper');
           // Don't throw - continue to investigate page structure
         }
+      } else {
+        await Logger.info(`No document type configuration found, skipping...`, 'county-scraper');
       }
+      await Logger.info(`Moving to date field configuration...`, 'county-scraper');
 
-      // Use specific test dates: 8/20/2025 to 8/21/2025
-      const searchStartDate = startDate || new Date('2025-08-20');
-      const searchEndDate = endDate || new Date('2025-08-21');
+      // Use specific test dates: 8/21/2025 to 8/22/2025 (user confirmed has results)
+      const searchStartDate = startDate || new Date('2025-08-21');
+      const searchEndDate = endDate || new Date('2025-08-22');
 
       const formatDate = (date: Date) => {
         // Legacy site uses MM/DD/YYYY format
@@ -171,24 +178,92 @@ export class PuppeteerCountyScraper extends CountyScraper {
         return `${month}/${day}/${year}`;
       };
 
+      // Debug configuration
+      await Logger.info(`Date field configuration check:`, 'county-scraper');
+      await Logger.info(`  startDateField: ${this.config.selectors.startDateField || 'NOT DEFINED'}`, 'county-scraper');
+      await Logger.info(`  endDateField: ${this.config.selectors.endDateField || 'NOT DEFINED'}`, 'county-scraper');
+      await Logger.info(`  searchStartDate: ${formatDate(searchStartDate)}`, 'county-scraper');
+      await Logger.info(`  searchEndDate: ${formatDate(searchEndDate)}`, 'county-scraper');
+
       if (this.config.selectors.startDateField) {
         await Logger.info(`Attempting to fill start date field with: ${formatDate(searchStartDate)}`, 'county-scraper');
+        await Logger.info(`Start date field selector: ${this.config.selectors.startDateField}`, 'county-scraper');
+        
+        // Debug: check what date inputs are available
+        const availableDateInputs = await page.evaluate(() => {
+          const allInputs = Array.from(document.querySelectorAll('input'));
+          return allInputs
+            .filter(input => input.type === 'text' || input.type === 'date' || input.id.toLowerCase().includes('date') || input.name.toLowerCase().includes('date'))
+            .map(input => ({
+              id: input.id,
+              name: input.name,
+              type: input.type,
+              class: input.className,
+              placeholder: input.placeholder
+            }));
+        });
+        await Logger.info(`Available date-related inputs: ${JSON.stringify(availableDateInputs)}`, 'county-scraper');
+        
         try {
           await page.waitForSelector(this.config.selectors.startDateField, { timeout: 10000 });
+          // Clear any existing content first
+          await page.click(this.config.selectors.startDateField, { clickCount: 3 });
+          await page.keyboard.press('Backspace');
           await page.type(this.config.selectors.startDateField, formatDate(searchStartDate));
           await Logger.info(`Successfully filled start date field`, 'county-scraper');
         } catch (error) {
           await Logger.error(`Failed to fill start date field: ${error}`, 'county-scraper');
+          
+          // Try alternative date input methods
+          const altSuccess = await page.evaluate((dateStr, selector) => {
+            const input = document.querySelector(selector);
+            if (input) {
+              (input as HTMLInputElement).value = dateStr;
+              input.dispatchEvent(new Event('input', { bubbles: true }));
+              input.dispatchEvent(new Event('change', { bubbles: true }));
+              return true;
+            }
+            return false;
+          }, formatDate(searchStartDate), this.config.selectors.startDateField);
+          
+          if (altSuccess) {
+            await Logger.info(`Alternative start date filling method succeeded`, 'county-scraper');
+          } else {
+            await Logger.warning(`All start date filling methods failed`, 'county-scraper');
+          }
         }
       }
       if (this.config.selectors.endDateField) {
         await Logger.info(`Attempting to fill end date field with: ${formatDate(searchEndDate)}`, 'county-scraper');
+        await Logger.info(`End date field selector: ${this.config.selectors.endDateField}`, 'county-scraper');
+        
         try {
           await page.waitForSelector(this.config.selectors.endDateField, { timeout: 10000 });
+          // Clear any existing content first
+          await page.click(this.config.selectors.endDateField, { clickCount: 3 });
+          await page.keyboard.press('Backspace');
           await page.type(this.config.selectors.endDateField, formatDate(searchEndDate));
           await Logger.info(`Successfully filled end date field`, 'county-scraper');
         } catch (error) {
           await Logger.error(`Failed to fill end date field: ${error}`, 'county-scraper');
+          
+          // Try alternative date input methods
+          const altSuccess = await page.evaluate((dateStr, selector) => {
+            const input = document.querySelector(selector);
+            if (input) {
+              (input as HTMLInputElement).value = dateStr;
+              input.dispatchEvent(new Event('input', { bubbles: true }));
+              input.dispatchEvent(new Event('change', { bubbles: true }));
+              return true;
+            }
+            return false;
+          }, formatDate(searchEndDate), this.config.selectors.endDateField);
+          
+          if (altSuccess) {
+            await Logger.info(`Alternative end date filling method succeeded`, 'county-scraper');
+          } else {
+            await Logger.warning(`All end date filling methods failed`, 'county-scraper');
+          }
         }
       }
 
@@ -202,16 +277,57 @@ export class PuppeteerCountyScraper extends CountyScraper {
         await Logger.info(`Search attempt ${searchAttempt} for real document results...`, 'county-scraper');
         
         if (this.config.selectors.searchButton) {
+          await Logger.info(`Attempting to click search button: ${this.config.selectors.searchButton}`, 'county-scraper');
+          
+          // Debug: check what search buttons are available
+          const availableButtons = await page.evaluate(() => {
+            const buttons = Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"]'));
+            return buttons.map(btn => ({
+              id: btn.id,
+              name: (btn as HTMLInputElement).name,
+              type: (btn as HTMLInputElement).type,
+              value: (btn as HTMLInputElement).value,
+              text: btn.textContent?.trim(),
+              class: btn.className
+            }));
+          });
+          await Logger.info(`Available buttons: ${JSON.stringify(availableButtons)}`, 'county-scraper');
+          
           try {
-            // Click search button and wait for navigation
-            await Promise.all([
-              page.waitForNavigation({ timeout: 8000, waitUntil: 'networkidle0' }),
-              page.click(this.config.selectors.searchButton)
-            ]);
+            // Try to click the search button directly first
+            await page.click(this.config.selectors.searchButton);
+            await Logger.info(`Search button clicked successfully`, 'county-scraper');
+            
+            // Wait for results to load
+            await new Promise(resolve => setTimeout(resolve, 5000));
             await Logger.info(`Search navigation completed`, 'county-scraper');
           } catch (error) {
-            await Logger.warning(`Navigation wait failed: ${error}`, 'county-scraper');
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            await Logger.warning(`Primary search button click failed: ${error}`, 'county-scraper');
+            
+            // Try alternative button selectors
+            const alternativeButtons = [
+              '#ctl00_ContentPlaceHolder1_btnSearch2',
+              'input[value*="Search"]',
+              'button[contains(text(), "Search")]',
+              'input[type="submit"]'
+            ];
+            
+            let searchSucceeded = false;
+            for (const altSelector of alternativeButtons) {
+              try {
+                await page.click(altSelector);
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                await Logger.info(`Alternative search button ${altSelector} succeeded`, 'county-scraper');
+                searchSucceeded = true;
+                break;
+              } catch (altError) {
+                await Logger.warning(`Alternative button ${altSelector} failed: ${altError}`, 'county-scraper');
+              }
+            }
+            
+            if (!searchSucceeded) {
+              await Logger.error(`All search button methods failed, search may not have been executed`, 'county-scraper');
+            }
           }
           
           // Quick check for actual document links vs calendar
@@ -443,9 +559,9 @@ export class PuppeteerCountyScraper extends CountyScraper {
 
   private async processSingleLien(page: Page, recordingNumber: string): Promise<ScrapedLien | null> {
     try {
-      await Logger.info(`Looking for recording number ${recordingNumber} in results table to open lightbox`, 'county-scraper');
+      await Logger.info(`Step 1: Looking for recording number ${recordingNumber} in first column of results table`, 'county-scraper');
       
-      // Find the recording number in the results table and click to open lightbox
+      // Step 1: Click the recording number in the first column of results table
       const foundAndClicked = await page.evaluate((targetNumber) => {
         const table = document.querySelector('table[id*="GridView"], table[id*="ctl00"]');
         if (!table) return false;
@@ -454,149 +570,112 @@ export class PuppeteerCountyScraper extends CountyScraper {
         for (const link of allLinks) {
           const linkText = link.textContent?.trim() || '';
           
-          // Find the exact recording number
+          // Find the exact recording number in first column
           if (linkText === targetNumber) {
-            // Look for a PDF or document link in the same row
-            const row = link.closest('tr');
-            if (row) {
-              // Look for the final column or a PDF link in this row
-              const cells = row.querySelectorAll('td');
-              const lastCell = cells[cells.length - 1];
-              
-              // Try to find a clickable element in the last cell (common for PDF access)
-              const pdfLink = lastCell?.querySelector('a, button, [onclick]') || 
-                            row.querySelector('a[href*="pdf"], a[onclick*="pdf"], a[onclick*="document"]') ||
-                            link; // Fallback to the recording number link itself
-              
-              if (pdfLink) {
-                (pdfLink as HTMLElement).click();
-                return true;
-              }
-            }
+            (link as HTMLElement).click();
+            return true;
           }
         }
         return false;
       }, recordingNumber);
       
       if (!foundAndClicked) {
-        await Logger.warning(`Could not find or click recording number ${recordingNumber} in results table`, 'county-scraper');
+        await Logger.warning(`Could not find recording number ${recordingNumber} in first column of results table`, 'county-scraper');
         return null;
       }
       
-      await Logger.info(`Clicked recording ${recordingNumber}, waiting for lightbox to open...`, 'county-scraper');
+      await Logger.info(`Step 1 complete: Clicked recording number ${recordingNumber}, waiting for detail page...`, 'county-scraper');
       
-      // Wait for lightbox/modal to appear (common selectors for modals)
-      let lightboxContent = '';
+      // Wait for navigation to detail page
       try {
-        await page.waitForSelector('div[class*="modal"], div[class*="lightbox"], div[class*="popup"], iframe, .modal, .lightbox', 
-          { timeout: 10000 });
-        
-        await Logger.info(`Lightbox opened for ${recordingNumber}, extracting PDF content...`, 'county-scraper');
-        
-        // Try multiple methods to extract content from lightbox
-        lightboxContent = await page.evaluate(() => {
-          // Look for common lightbox/modal selectors
-          const selectors = [
-            'div[class*="modal"] iframe',
-            'div[class*="lightbox"] iframe', 
-            'div[class*="popup"] iframe',
-            'iframe[src*="pdf"]',
-            '.modal iframe',
-            '.lightbox iframe',
-            'iframe',  // fallback to any iframe
-            'div[class*="modal"]',
-            'div[class*="lightbox"]',
-            '.modal',
-            '.lightbox'
-          ];
-          
-          for (const selector of selectors) {
-            const element = document.querySelector(selector);
-            if (element) {
-              if (element.tagName === 'IFRAME') {
-                try {
-                  // Try to access iframe content if same-origin
-                  const iframeDoc = (element as HTMLIFrameElement).contentDocument;
-                  if (iframeDoc) {
-                    return iframeDoc.body?.innerText || iframeDoc.body?.textContent || '';
-                  }
-                } catch (e) {
-                  // Cross-origin iframe, can't access content directly
-                }
-                return `IFRAME_FOUND: ${(element as HTMLIFrameElement).src}`;
-              } else {
-                return element.textContent || element.innerHTML || '';
-              }
-            }
-          }
-          
-          return '';
-        });
-        
-      } catch (waitError) {
-        await Logger.warning(`No lightbox appeared for ${recordingNumber}, trying direct content extraction: ${waitError}`, 'county-scraper');
-        
-        // Fallback: try to extract any new content that appeared on the page
-        lightboxContent = await page.evaluate(() => {
-          return document.body.innerText || document.body.textContent || '';
-        });
+        await page.waitForNavigation({ timeout: 15000, waitUntil: 'networkidle0' });
+        await Logger.info(`Step 2: Detail page loaded for ${recordingNumber}`, 'county-scraper');
+      } catch (navError) {
+        await Logger.warning(`Navigation to detail page failed: ${navError}`, 'county-scraper');
+        // Continue anyway, might be already loaded
       }
       
-      if (lightboxContent && lightboxContent.length > 50) {
-        await Logger.info(`Extracted ${lightboxContent.length} characters from lightbox for ${recordingNumber}`, 'county-scraper');
-        await Logger.info(`Lightbox content preview: "${lightboxContent.substring(0, 200)}"`, 'county-scraper');
+      // Step 2: Find and click the "Pages" column link to open PDF
+      await Logger.info(`Step 2: Looking for PDF link in Pages column...`, 'county-scraper');
+      
+      const pdfUrl = await page.evaluate(() => {
+        // Look for Pages column or PDF links in the detail page
+        const allLinks = document.querySelectorAll('a');
         
-        // Parse the content to extract lien information
-        const lien = await this.parseLienFromText(lightboxContent, recordingNumber, `lightbox-${recordingNumber}`);
-        
-        // Close lightbox/modal before moving to next lien
-        try {
-          await page.evaluate(() => {
-            // Try to close modal/lightbox with common methods
-            const closeSelectors = [
-              'button[class*="close"]',
-              'a[class*="close"]', 
-              '[onclick*="close"]',
-              'button[aria-label="Close"]',
-              '.modal button',
-              '.lightbox button',
-              '[data-dismiss="modal"]'
-            ];
-            
-            for (const selector of closeSelectors) {
-              const closeBtn = document.querySelector(selector);
-              if (closeBtn) {
-                (closeBtn as HTMLElement).click();
-                return;
-              }
-            }
-            
-            // Try pressing Escape key
-            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-          });
+        for (const link of allLinks) {
+          const href = link.getAttribute('href') || '';
+          const text = link.textContent?.trim() || '';
           
-          // Wait a moment for lightbox to close
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-        } catch (closeError) {
-          await Logger.warning(`Could not close lightbox for ${recordingNumber}: ${closeError}`, 'county-scraper');
+          // Look for PDF links in the expected format
+          if (href.includes('/UnOfficialDocs/pdf/') || 
+              href.includes('.pdf') ||
+              text.toLowerCase().includes('pdf') ||
+              text.toLowerCase().includes('page')) {
+            return href;
+          }
         }
         
+        // Also look for any links that might be in a "Pages" column
+        const cells = document.querySelectorAll('td');
+        for (const cell of cells) {
+          const cellText = cell.textContent?.trim().toLowerCase() || '';
+          if (cellText.includes('page') || cellText.includes('pdf')) {
+            const link = cell.querySelector('a');
+            if (link) {
+              return link.getAttribute('href') || '';
+            }
+          }
+        }
+        
+        return '';
+      });
+      
+      if (!pdfUrl) {
+        await Logger.warning(`Could not find PDF link in Pages column for ${recordingNumber}`, 'county-scraper');
+        return null;
+      }
+      
+      // Ensure we have a full URL
+      const fullPdfUrl = pdfUrl.startsWith('http') ? pdfUrl : 
+                        `https://legacy.recorder.maricopa.gov${pdfUrl}`;
+      
+      await Logger.info(`Step 2 complete: Found PDF URL: ${fullPdfUrl}`, 'county-scraper');
+      
+      // Step 3: Navigate to PDF and extract content
+      try {
+        await Logger.info(`Step 3: Navigating to PDF for extraction...`, 'county-scraper');
+        await page.goto(fullPdfUrl, { timeout: 20000, waitUntil: 'networkidle0' });
+        
+        // Wait for PDF to load
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        await Logger.info(`PDF loaded for ${recordingNumber}, extracting text...`, 'county-scraper');
+        
+        // Extract text content from PDF
+        const textContent = await page.evaluate(() => {
+          return document.body.innerText || document.body.textContent || '';
+        });
+
+        await Logger.info(`Extracted ${textContent.length} characters from PDF ${recordingNumber}`, 'county-scraper');
+        await Logger.info(`PDF content preview: "${textContent.substring(0, 200)}"`, 'county-scraper');
+        
+        // Parse the lien information from the text
+        const lien = await this.parseLienFromText(textContent, recordingNumber, fullPdfUrl);
+        
         if (lien) {
-          await Logger.info(`Parsed lien ${recordingNumber}: $${lien.amount} - ${lien.debtorName}`, 'county-scraper');
+          await Logger.info(`Successfully parsed lien ${recordingNumber}: $${lien.amount} - ${lien.debtorName}`, 'county-scraper');
         } else {
           await Logger.info(`Could not parse lien data from ${recordingNumber}`, 'county-scraper');
         }
         
         return lien;
         
-      } else {
-        await Logger.warning(`No content extracted from lightbox for ${recordingNumber}`, 'county-scraper');
+      } catch (pdfError) {
+        await Logger.error(`Failed to process PDF ${fullPdfUrl}: ${pdfError}`, 'county-scraper');
         return null;
       }
       
     } catch (error) {
-      await Logger.error(`Failed to process lien ${recordingNumber} via lightbox: ${error}`, 'county-scraper');
+      await Logger.error(`Failed to process lien ${recordingNumber} via two-step navigation: ${error}`, 'county-scraper');
       return null;
     }
   }
