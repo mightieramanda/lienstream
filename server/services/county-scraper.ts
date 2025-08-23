@@ -159,9 +159,10 @@ export class PuppeteerCountyScraper extends CountyScraper {
         }
       }
 
-      // Use recent date range with legacy MM/DD/YYYY format  
-      const searchStartDate = startDate || new Date('2025-08-21');
-      const searchEndDate = endDate || new Date('2025-08-21');
+      // Use TODAY's date range since you mentioned you can see liens on "21st of this month"
+      const today = new Date();
+      const searchStartDate = startDate || new Date(today.getFullYear(), today.getMonth(), 21); // 21st of current month
+      const searchEndDate = endDate || new Date(today.getFullYear(), today.getMonth(), 21);
 
       const formatDate = (date: Date) => {
         // Legacy site uses MM/DD/YYYY format
@@ -278,21 +279,137 @@ export class PuppeteerCountyScraper extends CountyScraper {
         }
       }
 
-      // Get all recording numbers from search results
-      const recordingNumbers = await page.evaluate((selector) => {
-        const elements = document.querySelectorAll(selector);
-        const numbers: string[] = [];
+      // Debug table structure and find actual document links (NOT navigation links)
+      const tableDebugInfo = await page.evaluate(() => {
+        const table = document.querySelector('table[id="ctl00_ContentPlaceHolder1_GridView1"], table[id*="ctl00"]');
+        if (!table) return { error: 'No table found with GridView selector' };
         
-        elements.forEach(element => {
-          if (element.textContent) {
-            numbers.push(element.textContent.trim());
+        const rows = table.querySelectorAll('tr');
+        const debugInfo = {
+          tableId: table.id,
+          tableClass: table.className,
+          totalRows: rows.length,
+          headers: [] as string[],
+          sampleRows: [] as any[],
+          documentLinks: [] as any[],
+          nonNavigationLinks: [] as any[]
+        };
+        
+        // Get headers
+        if (rows.length > 0) {
+          const headerRow = rows[0];
+          const headerCells = headerRow.querySelectorAll('th, td');
+          debugInfo.headers = Array.from(headerCells).map(cell => cell.textContent?.trim() || '');
+        }
+        
+        // Examine each data row carefully for document links
+        for (let i = 1; i < Math.min(rows.length, 5); i++) {
+          const row = rows[i];
+          const cells = row.querySelectorAll('td');
+          const rowInfo = {
+            rowIndex: i,
+            cellCount: cells.length,
+            cellContents: [] as any[]
+          };
+          
+          // Check each cell for different types of content
+          cells.forEach((cell, cellIndex) => {
+            const cellText = cell.textContent?.trim() || '';
+            const cellHtml = cell.innerHTML;
+            const links = cell.querySelectorAll('a');
+            
+            rowInfo.cellContents.push({
+              cellIndex,
+              text: cellText,
+              hasLink: links.length > 0,
+              links: Array.from(links).map(link => ({
+                text: link.textContent?.trim(),
+                href: link.href,
+                onclick: link.getAttribute('onclick'),
+                target: link.target
+              })),
+              containsPdf: cellHtml.toLowerCase().includes('pdf'),
+              containsDocument: cellHtml.toLowerCase().includes('document') || cellHtml.toLowerCase().includes('doc'),
+              innerHTML: cellHtml.length > 200 ? cellHtml.substring(0, 200) + '...' : cellHtml
+            });
+          });
+          
+          debugInfo.sampleRows.push(rowInfo);
+        }
+        
+        // Find links that might be document links (not navigation)
+        const allLinks = table.querySelectorAll('a');
+        allLinks.forEach(link => {
+          const linkText = link.textContent?.trim() || '';
+          const linkHref = link.href;
+          const onclick = link.getAttribute('onclick');
+          
+          // Skip obvious navigation links
+          if (!['<<', '<', '>', '»', '«'].includes(linkText) && 
+              !linkHref.endsWith('#') && 
+              linkText.match(/\d+/) &&  // Contains numbers (likely recording numbers)
+              linkText.length > 2) {   // Not just single characters
+            debugInfo.documentLinks.push({
+              text: linkText,
+              href: linkHref,
+              onclick: onclick,
+              parent: link.parentElement?.tagName
+            });
+          }
+          
+          // Also collect non-navigation links for analysis
+          if (!['<<', '<', '>', '»', '«'].includes(linkText)) {
+            debugInfo.nonNavigationLinks.push({
+              text: linkText,
+              href: linkHref,
+              onclick: onclick
+            });
           }
         });
         
-        return numbers;
-      }, this.config.selectors.recordingNumberLinks!);
+        return debugInfo;
+      });
+
+      console.log('=== TABLE ANALYSIS ===', JSON.stringify(tableDebugInfo, null, 2));
+      await Logger.info(`Table analysis - Rows: ${tableDebugInfo.error ? 'ERROR' : tableDebugInfo.totalRows}, Document links: ${tableDebugInfo.error ? 0 : tableDebugInfo.documentLinks?.length}, Non-nav links: ${tableDebugInfo.error ? 0 : tableDebugInfo.nonNavigationLinks?.length}`, 'county-scraper');
+      
+      if (!tableDebugInfo.error && tableDebugInfo.documentLinks && tableDebugInfo.documentLinks.length > 0) {
+        await Logger.info(`Found potential document links: ${tableDebugInfo.documentLinks.map(link => link.text).slice(0, 3).join(', ')}`, 'county-scraper');
+      }
+
+      // Extract recording numbers using our analysis of actual document links
+      const recordingNumbers = await page.evaluate(() => {
+        // Use our document link analysis from above to find the real recording numbers
+        const table = document.querySelector('table[id="ctl00_ContentPlaceHolder1_GridView1"], table[id*="ctl00"]');
+        if (!table) return [];
+        
+        const actualDocumentNumbers: string[] = [];
+        const allLinks = table.querySelectorAll('a');
+        
+        allLinks.forEach(link => {
+          const linkText = link.textContent?.trim() || '';
+          const linkHref = link.href;
+          
+          // Only get links that look like recording numbers:
+          // - Contains numbers and are long enough to be recording numbers (like 19150002877)
+          // - Have actual URLs (not just '#')
+          // - Skip obvious navigation (<<, <, >, calendar numbers 1-31)
+          if (linkText.match(/^\d{11}$/) &&  // 11-digit recording numbers
+              !linkHref.endsWith('#') &&     // Skip navigation links
+              linkHref.includes('GetRecDataDetail')) {  // Links to actual documents
+            actualDocumentNumbers.push(linkText);
+          }
+        });
+        
+        console.log('Extracted actual recording numbers:', actualDocumentNumbers.slice(0, 5));
+        return actualDocumentNumbers;
+      });
 
       await Logger.info(`Found ${recordingNumbers.length} potential medical liens in ${this.county.name}`, 'county-scraper', { count: recordingNumbers.length });
+      
+      if (recordingNumbers.length > 0) {
+        await Logger.info(`First few recording numbers: ${recordingNumbers.slice(0, 3).join(', ')}`, 'county-scraper');
+      }
 
       // Process each recording number
       for (const recordingNumber of recordingNumbers) {
