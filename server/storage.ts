@@ -130,7 +130,7 @@ export class MemStorage implements IStorage {
       id: pimaId,
       name: "Pima County",
       state: "Arizona",
-      isActive: true,
+      isActive: false,
       config: {
         scrapeType: 'puppeteer',
         baseUrl: 'https://pimacountyaz-web.tylerhost.net',
@@ -171,7 +171,7 @@ export class MemStorage implements IStorage {
       id: pinalId,
       name: "Pinal County",
       state: "Arizona",
-      isActive: true,
+      isActive: false,
       config: {
         scrapeType: 'puppeteer',
         baseUrl: 'https://acclaim.pinalcountyaz.gov',

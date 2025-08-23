@@ -159,64 +159,8 @@ export class PuppeteerCountyScraper extends CountyScraper {
         }
       }
 
-      // Set date range - much broader range to find medical liens for testing
-      const searchStartDate = startDate || new Date('2025-01-01'); // Start of 2025
-      const searchEndDate = endDate || new Date(); // today
-
-      const formatDate = (date: Date) => {
-        // Maricopa County uses MM/DD/YYYY format
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const day = date.getDate().toString().padStart(2, '0');
-        const year = date.getFullYear();
-        return `${month}/${day}/${year}`;
-      };
-
-      if (this.config.selectors.startDateField) {
-        await Logger.info(`Attempting to fill start date field with: ${formatDate(searchStartDate)}`, 'county-scraper');
-        try {
-          // Wait for Telerik components to be ready
-          await page.waitForSelector(this.config.selectors.startDateField, { timeout: 10000 });
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Use JavaScript to set the value directly
-          const startDateValue = formatDate(searchStartDate);
-          await page.evaluate((selector, value) => {
-            const element = document.querySelector(selector);
-            if (element) {
-              element.value = value;
-              element.dispatchEvent(new Event('input', { bubbles: true }));
-              element.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-          }, this.config.selectors.startDateField, startDateValue);
-          
-          await Logger.info(`Successfully filled start date field`, 'county-scraper');
-        } catch (error) {
-          await Logger.error(`Failed to fill start date field: ${error}`, 'county-scraper');
-        }
-      }
-      if (this.config.selectors.endDateField) {
-        await Logger.info(`Attempting to fill end date field with: ${formatDate(searchEndDate)}`, 'county-scraper');
-        try {
-          // Wait for Telerik components to be ready
-          await page.waitForSelector(this.config.selectors.endDateField, { timeout: 10000 });
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Use JavaScript to set the value directly
-          const endDateValue = formatDate(searchEndDate);
-          await page.evaluate((selector, value) => {
-            const element = document.querySelector(selector);
-            if (element) {
-              element.value = value;
-              element.dispatchEvent(new Event('input', { bubbles: true }));
-              element.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-          }, this.config.selectors.endDateField, endDateValue);
-          
-          await Logger.info(`Successfully filled end date field`, 'county-scraper');
-        } catch (error) {
-          await Logger.error(`Failed to fill end date field: ${error}`, 'county-scraper');
-        }
-      }
+      // Skip date filtering entirely to find ANY medical liens
+      await Logger.info(`Skipping date fields to search all medical liens (any date)`, 'county-scraper');
 
       // Click search - use JavaScript for Telerik RadButton components
       if (this.config.selectors.searchButton) {
@@ -324,9 +268,9 @@ export class PuppeteerCountyScraper extends CountyScraper {
       for (const recordingNumber of recordingNumbers) {
         try {
           const lien = await this.processSingleLien(page, recordingNumber);
-          if (lien && lien.amount >= 20000) {
+          if (lien && lien.amount >= 5000) {
             liens.push(lien);
-            await Logger.info(`Added lien over $20k from ${this.county.name}: ${recordingNumber} - $${lien.amount}`, 'county-scraper');
+            await Logger.info(`Added lien over $5k from ${this.county.name}: ${recordingNumber} - $${lien.amount}`, 'county-scraper');
           } else if (lien) {
             await Logger.info(`Skipped lien under $20k from ${this.county.name}: ${recordingNumber} - $${lien.amount}`, 'county-scraper');
           }
