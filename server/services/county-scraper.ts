@@ -113,10 +113,87 @@ export class PuppeteerCountyScraper extends CountyScraper {
         await page.type(this.config.selectors.endDateField, formatDate(searchEndDate));
       }
 
-      // Click search
+      // Click search - use JavaScript for Telerik RadButton components
       if (this.config.selectors.searchButton) {
-        await page.click(this.config.selectors.searchButton);
-        await page.waitForSelector(this.config.selectors.resultsTable!, { timeout: 15000 });
+        try {
+          // Try JavaScript click first for Telerik components
+          await page.evaluate((selector) => {
+            const button = document.querySelector(selector);
+            if (button && button.click) {
+              button.click();
+            }
+          }, this.config.selectors.searchButton);
+        } catch (error) {
+          // Fallback to standard click
+          await page.click(this.config.selectors.searchButton);
+        }
+        // Wait for page to finish loading JavaScript/AJAX after search
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        // Wait for either results table or no results message
+        try {
+          await page.waitForSelector(this.config.selectors.resultsTable!, { timeout: 15000 });
+          await Logger.info(`Results table found for ${this.county.name}`, 'county-scraper');
+        } catch (error) {
+          // Try alternative selectors
+          const alternativeSelectors = [
+            'table[id*="GridView"]',
+            'table[id*="ctl00"]', 
+            'table.rgMasterTable',
+            'table',
+            '[id*="GridView1"]'
+          ];
+          
+          for (const selector of alternativeSelectors) {
+            try {
+              await page.waitForSelector(selector, { timeout: 3000 });
+              await Logger.info(`Found alternative results table with selector: ${selector}`, 'county-scraper');
+              // Update config for future use
+              this.config.selectors.resultsTable = selector;
+              break;
+            } catch (e) {
+              // Continue to next selector
+            }
+          }
+          // Check if there's a "no results" message or alternative content
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Extra wait for AJAX
+          
+          const pageContent = await page.content();
+          await Logger.info(`Full page content after search: ${pageContent}`, 'county-scraper');
+          
+          // Check for common "no results" patterns
+          const hasNoResults = pageContent.includes('No records found') || 
+                                pageContent.includes('No documents') ||
+                                pageContent.includes('0 records') ||
+                                pageContent.includes('no matches');
+                                
+          if (hasNoResults) {
+            await Logger.info(`No results found for search in ${this.county.name}`, 'county-scraper');
+            return liens;
+          }
+          
+          // If we have meaningful content but no results table, check for alternative table formats
+          if (pageContent.length > 1000) {
+            // Check for any table or GridView elements
+            const hasAnyTable = pageContent.includes('<table') || pageContent.includes('GridView') || pageContent.includes('ctl00_ContentPlaceHolder1');
+            const hasResultsText = pageContent.includes('result') || pageContent.includes('record') || pageContent.includes('document');
+            
+            await Logger.error(`Results table not found but page loaded. Has tables: ${hasAnyTable}, Has results text: ${hasResultsText}. Content snippet: ${pageContent.substring(0, 1000)}`, 'county-scraper');
+            
+            // Check for any liens data in alternative formats
+            if (pageContent.includes('medical') || pageContent.includes('lien') || pageContent.includes('MEDICAL') || pageContent.includes('LIEN')) {
+              await Logger.info(`Found medical/lien content in page, investigating format`, 'county-scraper');
+            }
+            
+            // Find all table selectors on the page
+            const tableMatches = pageContent.match(/<table[^>]*>/g) || [];
+            const gridViewMatches = pageContent.match(/GridView\d+/g) || [];
+            const idMatches = pageContent.match(/id="[^"]*"/g) || [];
+            
+            await Logger.info(`Found ${tableMatches.length} tables, GridViews: ${gridViewMatches.join(', ')}, IDs: ${idMatches.slice(0, 10).join(', ')}`, 'county-scraper');
+          }
+          throw error;
+        }
       }
 
       // Get all recording numbers from search results

@@ -97,7 +97,7 @@ export class MemStorage implements IStorage {
         documentUrlPattern: 'https://legacy.recorder.maricopa.gov/UnOfficialDocs/pdf/{recordingNumber}.pdf',
         selectors: {
           documentTypeField: 'select[name="ctl00$ContentPlaceHolder1$ddlDocCodes"]',
-          documentTypeValue: 'MECHLN',
+          documentTypeValue: 'HL',
           startDateField: '',
           endDateField: '',
           searchButton: '#ctl00_ContentPlaceHolder1_btnSearch2',
