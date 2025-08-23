@@ -6,10 +6,8 @@ interface AirtableRecord {
   fields: {
     'Name and Lien Amount': string;
     'Status': string;
-    'Source': string;
-    'State (by County)': string;
     'County Name': string;
-    'Creditor Name': string;
+    'State (by County)': string;
     'Document ID': string;
     'Scrape Batch ID': string;
     'Recorded Date/Time': string;
@@ -19,12 +17,12 @@ interface AirtableRecord {
     'Lien Amount': string;
     'Detail URL': string;
     'PDF Link': string;
+    'Creditor Name': string;
     'Phone': string;
     'Phone (All)': string;
     'Email': string;
     'Email (All)': string;
     'Confidence Score': number;
-    'Enrichment Status': string;
     'Direct Mail Status': string;
     'Email Status': string;
     'Dialer Status': string;
@@ -73,25 +71,23 @@ export class AirtableService {
           fields: {
             'Name and Lien Amount': `${lien.debtorName} – ${formattedAmount}`,
             'Status': 'New',
-            'Source': `${countyName} Lien`,
-            'State (by County)': stateName,
             'County Name': countyName,
-            'Creditor Name': lien.creditorName || '',
+            'State (by County)': stateName,
             'Document ID': lien.recordingNumber,
             'Scrape Batch ID': batchId,
             'Recorded Date/Time': lien.recordDate.toISOString(),
-            'Doc Type': 'Medical Lien', // Could be enhanced with actual doc type
+            'Doc Type': 'Medical Lien',
             'Grantor/Grantee Names': `${lien.debtorName}${lien.creditorName ? ` / ${lien.creditorName}` : ''}`,
             'Address': lien.debtorAddress || '',
             'Lien Amount': formattedAmount,
             'Detail URL': '', // Would be county search result URL
             'PDF Link': lien.documentUrl || '',
+            'Creditor Name': lien.creditorName || '',
             'Phone': '',
             'Phone (All)': '',
             'Email': '',
             'Email (All)': '',
             'Confidence Score': 85, // Base confidence, will be updated with enrichment
-            'Enrichment Status': 'Pending',
             'Direct Mail Status': '',
             'Email Status': '',
             'Dialer Status': '',
@@ -175,10 +171,9 @@ export class AirtableService {
         updateFields['Email (All)'] = email; // Could be enhanced to append multiple emails
       }
       
-      // Update confidence score and enrichment status when enrichment data is added
+      // Update confidence score when enrichment data is added
       if (phoneNumber || email) {
         updateFields['Confidence Score'] = 95; // Higher confidence with contact info
-        updateFields['Enrichment Status'] = 'Completed';
       }
       
       // Always update the Last Updated timestamp
