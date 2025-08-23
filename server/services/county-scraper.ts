@@ -98,9 +98,9 @@ export class PuppeteerCountyScraper extends CountyScraper {
         await page.select(this.config.selectors.documentTypeField, this.config.selectors.documentTypeValue);
       }
 
-      // Set date range (default to yesterday if not provided)
-      const searchStartDate = startDate || new Date('2025-08-21');
-      const searchEndDate = endDate || new Date('2025-08-21');
+      // Set date range (broader July range to find medical liens)
+      const searchStartDate = startDate || new Date('2025-07-01');
+      const searchEndDate = endDate || new Date('2025-07-31');
 
       const formatDate = (date: Date) => {
         // Maricopa County uses MM/DD/YYYY format
