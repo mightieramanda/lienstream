@@ -101,22 +101,11 @@ export class PuppeteerCountyScraper extends CountyScraper {
 
       // Real scraping implementation for all counties
 
-      // Use direct URL approach to bypass Cloudflare protection on search form
-      const searchStartDate = startDate || new Date('2025-08-21');  
-      const searchEndDate = endDate || new Date('2025-08-21');
-
-      const formatDate = (date: Date) => {
-        const year = date.getFullYear();
-        const month = (date.getMonth() + 1).toString().padStart(2, '0'); 
-        const day = date.getDate().toString().padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      };
-
-      // Direct results URL to bypass search form entirely
-      const resultsUrl = `https://recorder.maricopa.gov/recording/document-search-results.html?lastNames=&firstNames=&middleNameIs=&documentTypeSelector=code&documentCode=HL&beginDate=${formatDate(searchStartDate)}&endDate=${formatDate(searchEndDate)}`;
-      
-      await Logger.info(`Bypassing form, direct access to: ${resultsUrl}`, 'county-scraper');
-      await page.goto(resultsUrl, { waitUntil: 'networkidle0', timeout: 30000 });
+      // Use legacy site with form automation (no Cloudflare protection)
+      await page.goto(this.config.searchUrl, {
+        waitUntil: 'networkidle0',
+        timeout: 30000
+      });
 
       // Handle Cloudflare or similar protection screens
       let pageTitle = await page.title();
@@ -169,6 +158,18 @@ export class PuppeteerCountyScraper extends CountyScraper {
           // Don't throw - continue to investigate page structure
         }
       }
+
+      // Use recent date range with legacy MM/DD/YYYY format  
+      const searchStartDate = startDate || new Date('2025-08-21');
+      const searchEndDate = endDate || new Date('2025-08-21');
+
+      const formatDate = (date: Date) => {
+        // Legacy site uses MM/DD/YYYY format
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        const year = date.getFullYear();
+        return `${month}/${day}/${year}`;
+      };
 
       if (this.config.selectors.startDateField) {
         await Logger.info(`Attempting to fill start date field with: ${formatDate(searchStartDate)}`, 'county-scraper');
