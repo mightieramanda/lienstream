@@ -54,8 +54,18 @@ export class PuppeteerCountyScraper extends CountyScraper {
 
   async initialize() {
     try {
+      // Find system Chromium executable
+      const { execSync } = require('child_process');
+      let executablePath;
+      try {
+        executablePath = execSync('which chromium', { encoding: 'utf8' }).trim();
+      } catch {
+        executablePath = undefined; // fallback to default
+      }
+
       this.browser = await puppeteer.launch({
         headless: true,
+        executablePath,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
