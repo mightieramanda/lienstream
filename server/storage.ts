@@ -78,11 +78,12 @@ export class MemStorage implements IStorage {
     this.counties = new Map();
     this.countyRuns = new Map();
     
-    // Initialize with Maricopa County by default
-    this.initializeDefaultCounty();
+    // Initialize with Arizona counties by default
+    this.initializeDefaultCounties();
   }
 
-  private initializeDefaultCounty() {
+  private initializeDefaultCounties() {
+    // Maricopa County
     const maricopaId = randomUUID();
     const maricopa: County = {
       id: maricopaId,
@@ -122,6 +123,90 @@ export class MemStorage implements IStorage {
       updatedAt: new Date()
     };
     this.counties.set(maricopaId, maricopa);
+
+    // Pima County
+    const pimaId = randomUUID();
+    const pima: County = {
+      id: pimaId,
+      name: "Pima County",
+      state: "Arizona",
+      isActive: true,
+      config: {
+        scrapeType: 'puppeteer',
+        baseUrl: 'https://www.recorder.pima.gov',
+        searchUrl: 'https://www.recorder.pima.gov/search/index.php?act=s',
+        documentUrlPattern: '',
+        selectors: {
+          documentTypeField: 'select[name="tp"]',
+          documentTypeValue: 'HOSPITAL LIEN',
+          startDateField: 'input[name="rd1"]',
+          endDateField: 'input[name="rd2"]',
+          searchButton: 'input[type="submit"][value="SEARCH"]',
+          resultsTable: '.search-results',
+          recordingNumberLinks: '.search-results tr td a'
+        },
+        parsing: {
+          amountPattern: 'Amount claimed due for care of patient as of date of recording[:\\s]*\\$?([\\d,]+\\.?\\d*)',
+          debtorPattern: 'Debtor[:\\s]*(.*?)(?:\\n|Address|$)',
+          creditorPattern: 'Creditor[:\\s]*(.*?)(?:\\n|Address|$)',
+          addressPattern: '(\\d+.*?(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Circle|Cir|Court|Ct|Way).*?(?:AZ|Arizona).*?\\d{5})'
+        },
+        delays: {
+          pageLoad: 3000,
+          betweenRequests: 1500,
+          pdfLoad: 3000
+        },
+        authentication: {
+          type: 'none'
+        }
+      },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.counties.set(pimaId, pima);
+
+    // Pinal County
+    const pinalId = randomUUID();
+    const pinal: County = {
+      id: pinalId,
+      name: "Pinal County",
+      state: "Arizona",
+      isActive: true,
+      config: {
+        scrapeType: 'puppeteer',
+        baseUrl: 'https://countydocuments.pinalcountyaz.gov',
+        searchUrl: 'https://countydocuments.pinalcountyaz.gov/WebSearch/SelfService/SearchTypes.aspx',
+        documentUrlPattern: '',
+        selectors: {
+          documentTypeField: 'select[id*="DocType"]',
+          documentTypeValue: 'LIEN H - HEALTH CARE, HOSPITAL LIEN',
+          startDateField: 'input[id*="startDate"]',
+          endDateField: 'input[id*="endDate"]',
+          searchButton: 'input[type="submit"][value*="Search"]',
+          resultsTable: '.search-results',
+          recordingNumberLinks: '.search-results tr td a',
+          lightboxTrigger: '.document-link'
+        },
+        parsing: {
+          amountPattern: 'Amount claimed due for care of patient as of date of recording[:\\s]*\\$?([\\d,]+\\.?\\d*)',
+          debtorPattern: 'Debtor[:\\s]*(.*?)(?:\\n|Address|$)',
+          creditorPattern: 'Creditor[:\\s]*(.*?)(?:\\n|Address|$)',
+          addressPattern: '(\\d+.*?(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Circle|Cir|Court|Ct|Way).*?(?:AZ|Arizona).*?\\d{5})'
+        },
+        delays: {
+          pageLoad: 4000,
+          betweenRequests: 2000,
+          pdfLoad: 4000,
+          lightboxWait: 3000
+        },
+        authentication: {
+          type: 'none'
+        }
+      },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.counties.set(pinalId, pinal);
   }
 
   // User methods
@@ -310,6 +395,7 @@ export class MemStorage implements IStorage {
     const county: County = {
       ...insertCounty,
       id,
+      isActive: insertCounty.isActive ?? true,
       createdAt: now,
       updatedAt: now,
     };
