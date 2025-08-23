@@ -98,10 +98,10 @@ export class MemStorage implements IStorage {
         selectors: {
           documentTypeField: 'select[name="ctl00$ContentPlaceHolder1$ddlDocCodes"]',
           documentTypeValue: 'HL',
-          startDateField: '',
-          endDateField: '',
+          startDateField: '#ctl00_ContentPlaceHolder1_RadDateInputBegin',
+          endDateField: '#ctl00_ContentPlaceHolder1_RadDateInputEnd',
           searchButton: '#ctl00_ContentPlaceHolder1_btnSearch2',
-          resultsTable: 'table[id="ctl00_ContentPlaceHolder1_GridView1"]',
+          resultsTable: 'table[id="ctl00_ContentPlaceHolder1_GridView1"], table[id*="ctl00"]',
           recordingNumberLinks: 'table[id="ctl00_ContentPlaceHolder1_GridView1"] tr td:first-child a'
         },
         parsing: {

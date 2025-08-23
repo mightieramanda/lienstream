@@ -103,14 +103,58 @@ export class PuppeteerCountyScraper extends CountyScraper {
       const searchEndDate = endDate || new Date('2025-08-21');
 
       const formatDate = (date: Date) => {
-        return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+        // Maricopa County uses MM/DD/YYYY format
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        const year = date.getFullYear();
+        return `${month}/${day}/${year}`;
       };
 
       if (this.config.selectors.startDateField) {
-        await page.type(this.config.selectors.startDateField, formatDate(searchStartDate));
+        await Logger.info(`Attempting to fill start date field with: ${formatDate(searchStartDate)}`, 'county-scraper');
+        try {
+          // Wait for Telerik components to be ready
+          await page.waitForSelector(this.config.selectors.startDateField, { timeout: 10000 });
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Use JavaScript to set the value directly
+          const startDateValue = formatDate(searchStartDate);
+          await page.evaluate((selector, value) => {
+            const element = document.querySelector(selector);
+            if (element) {
+              element.value = value;
+              element.dispatchEvent(new Event('input', { bubbles: true }));
+              element.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          }, this.config.selectors.startDateField, startDateValue);
+          
+          await Logger.info(`Successfully filled start date field`, 'county-scraper');
+        } catch (error) {
+          await Logger.error(`Failed to fill start date field: ${error}`, 'county-scraper');
+        }
       }
       if (this.config.selectors.endDateField) {
-        await page.type(this.config.selectors.endDateField, formatDate(searchEndDate));
+        await Logger.info(`Attempting to fill end date field with: ${formatDate(searchEndDate)}`, 'county-scraper');
+        try {
+          // Wait for Telerik components to be ready
+          await page.waitForSelector(this.config.selectors.endDateField, { timeout: 10000 });
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Use JavaScript to set the value directly
+          const endDateValue = formatDate(searchEndDate);
+          await page.evaluate((selector, value) => {
+            const element = document.querySelector(selector);
+            if (element) {
+              element.value = value;
+              element.dispatchEvent(new Event('input', { bubbles: true }));
+              element.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          }, this.config.selectors.endDateField, endDateValue);
+          
+          await Logger.info(`Successfully filled end date field`, 'county-scraper');
+        } catch (error) {
+          await Logger.error(`Failed to fill end date field: ${error}`, 'county-scraper');
+        }
       }
 
       // Click search - use JavaScript for Telerik RadButton components
@@ -159,7 +203,10 @@ export class PuppeteerCountyScraper extends CountyScraper {
           await new Promise(resolve => setTimeout(resolve, 2000)); // Extra wait for AJAX
           
           const pageContent = await page.content();
-          await Logger.info(`Full page content after search: ${pageContent}`, 'county-scraper');
+          await Logger.info(`Full page content after search: ${pageContent.substring(0, 2000)}`, 'county-scraper');
+          
+          // Since Maricopa County doesn't support date filtering, log search parameters
+          await Logger.info(`Searched ${this.county.name} for MEDICAL LN documents (all dates). Target date was: ${formatDate(searchStartDate)}`, 'county-scraper');
           
           // Check for common "no results" patterns
           const hasNoResults = pageContent.includes('No records found') || 
