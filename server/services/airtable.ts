@@ -4,30 +4,13 @@ import { storage } from '../storage';
 
 interface AirtableRecord {
   fields: {
-    'Name and Lien Amount': string;
-    'Status': string;
-    'County Name': string;
-    'State (by County)': string;
-    'Document ID': string;
-    'Scrape Batch ID': string;
-    'Recorded Date/Time': string;
-    'Doc Type': string;
-    'Grantor/Grantee Names': string;
-    'Address': string;
-    'Lien Amount': string;
-    'Detail URL': string;
-    'PDF Link': string;
-    'Creditor Name': string;
-    'Phone': string;
-    'Phone (All)': string;
-    'Email': string;
-    'Email (All)': string;
-    'Confidence Score': number;
-    'Direct Mail Status': string;
-    'Email Status': string;
-    'Dialer Status': string;
-    'Notes/Errors': string;
-    'Last Updated': string;
+    'Status'?: string;
+    'County Name'?: string;
+    'Document ID'?: string;
+    'Scrape Batch ID'?: string;
+    'Grantor/Grantee Names'?: string;
+    'Lien Amount'?: number;
+    [key: string]: any; // Allow additional fields
   };
 }
 
@@ -39,7 +22,7 @@ export class AirtableService {
   constructor() {
     this.apiKey = process.env.AIRTABLE_API_KEY || process.env.AIRTABLE_TOKEN || '';
     this.baseId = process.env.AIRTABLE_BASE_ID || '';
-    this.tableId = 'All Medical Liens'; // Updated to match user's table name
+    this.tableId = process.env.AIRTABLE_TABLE_ID || '';
     
     if (!this.apiKey || !this.baseId) {
       Logger.warning('Airtable credentials not configured', 'airtable');
@@ -72,7 +55,6 @@ export class AirtableService {
             'Status': 'New',
             'County Name': countyName,
             'Document ID': lien.recordingNumber,
-            'Scrape Batch ID': batchId,
             'Grantor/Grantee Names': `${lien.debtorName}${lien.creditorName ? ` / ${lien.creditorName}` : ''}`,
             'Lien Amount': parseFloat(lien.amount)
           }
