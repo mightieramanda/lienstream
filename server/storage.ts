@@ -6,7 +6,11 @@ import {
   type AutomationRun,
   type InsertAutomationRun,
   type SystemLog,
-  type InsertSystemLog
+  type InsertSystemLog,
+  type County,
+  type InsertCounty,
+  type CountyRun,
+  type InsertCountyRun
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -37,6 +41,18 @@ export interface IStorage {
   createSystemLog(log: InsertSystemLog): Promise<SystemLog>;
   getRecentSystemLogs(limit: number): Promise<SystemLog[]>;
   
+  // County methods
+  getCounty(id: string): Promise<County | undefined>;
+  getCountiesByState(state: string): Promise<County[]>;
+  getActiveCounties(): Promise<County[]>;
+  createCounty(county: InsertCounty): Promise<County>;
+  updateCounty(id: string, updates: Partial<County>): Promise<void>;
+  
+  // County run methods
+  createCountyRun(run: InsertCountyRun): Promise<string>;
+  updateCountyRun(id: string, updates: Partial<CountyRun>): Promise<void>;
+  getCountyRunsByAutomationRun(automationRunId: string): Promise<CountyRun[]>;
+  
   // Dashboard stats
   getDashboardStats(): Promise<{
     todaysLiens: number;
@@ -51,12 +67,61 @@ export class MemStorage implements IStorage {
   private liens: Map<string, Lien>;
   private automationRuns: Map<string, AutomationRun>;
   private systemLogs: Map<string, SystemLog>;
+  private counties: Map<string, County>;
+  private countyRuns: Map<string, CountyRun>;
 
   constructor() {
     this.users = new Map();
     this.liens = new Map();
     this.automationRuns = new Map();
     this.systemLogs = new Map();
+    this.counties = new Map();
+    this.countyRuns = new Map();
+    
+    // Initialize with Maricopa County by default
+    this.initializeDefaultCounty();
+  }
+
+  private initializeDefaultCounty() {
+    const maricopaId = randomUUID();
+    const maricopa: County = {
+      id: maricopaId,
+      name: "Maricopa County",
+      state: "Arizona",
+      isActive: true,
+      config: {
+        scrapeType: 'puppeteer',
+        baseUrl: 'https://recorder.maricopa.gov',
+        searchUrl: 'https://recorder.maricopa.gov/recording/document-search.html',
+        documentUrlPattern: 'https://legacy.recorder.maricopa.gov/UnOfficialDocs/pdf/{recordingNumber}.pdf',
+        selectors: {
+          documentTypeField: 'select[name="documentType"]',
+          documentTypeValue: 'MEDICAL LN',
+          startDateField: 'input[name="startDate"]',
+          endDateField: 'input[name="endDate"]',
+          searchButton: 'button[type="submit"]',
+          resultsTable: '.search-results',
+          recordingNumberLinks: '.search-results tr td:first-child a'
+        },
+        parsing: {
+          amountPattern: 'Amount claimed due for care of patient as of date of recording[:\\s]*\\$?([\\d,]+\\.?\\d*)',
+          debtorPattern: 'Debtor[:\\s]*(.*?)(?:\\n|Address|$)',
+          creditorPattern: 'Creditor[:\\s]*(.*?)(?:\\n|Address|$)',
+          addressPattern: '(\\d+.*?(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Circle|Cir|Court|Ct|Way).*?(?:AZ|Arizona).*?\\d{5})'
+        },
+        delays: {
+          pageLoad: 2000,
+          betweenRequests: 1000,
+          pdfLoad: 2000
+        },
+        authentication: {
+          type: 'none'
+        }
+      },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.counties.set(maricopaId, maricopa);
   }
 
   // User methods
@@ -224,6 +289,76 @@ export class MemStorage implements IStorage {
       mailersSent: mailerSentLiens.length,
       activeLeads: allLiens.filter(l => l.status === 'synced' || l.status === 'mailer_sent').length,
     };
+  }
+
+  // County methods
+  async getCounty(id: string): Promise<County | undefined> {
+    return this.counties.get(id);
+  }
+
+  async getCountiesByState(state: string): Promise<County[]> {
+    return Array.from(this.counties.values()).filter(county => county.state === state);
+  }
+
+  async getActiveCounties(): Promise<County[]> {
+    return Array.from(this.counties.values()).filter(county => county.isActive);
+  }
+
+  async createCounty(insertCounty: InsertCounty): Promise<County> {
+    const id = randomUUID();
+    const now = new Date();
+    const county: County = {
+      ...insertCounty,
+      id,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.counties.set(id, county);
+    return county;
+  }
+
+  async updateCounty(id: string, updates: Partial<County>): Promise<void> {
+    const county = this.counties.get(id);
+    if (county) {
+      Object.assign(county, { ...updates, updatedAt: new Date() });
+      this.counties.set(id, county);
+    }
+  }
+
+  // County run methods
+  async createCountyRun(insertRun: InsertCountyRun): Promise<string> {
+    const id = randomUUID();
+    const run: CountyRun = {
+      ...insertRun,
+      id,
+      endTime: null,
+      liensFound: insertRun.liensFound || 0,
+      liensProcessed: insertRun.liensProcessed || 0,
+      errorMessage: null,
+      metadata: insertRun.metadata || null,
+    };
+    this.countyRuns.set(id, run);
+    return id;
+  }
+
+  async updateCountyRun(id: string, updates: Partial<CountyRun>): Promise<void> {
+    const run = this.countyRuns.get(id);
+    if (run) {
+      Object.assign(run, updates);
+      this.countyRuns.set(id, run);
+    }
+  }
+
+  async getCountyRunsByAutomationRun(automationRunId: string): Promise<CountyRun[]> {
+    return Array.from(this.countyRuns.values()).filter(
+      run => run.automationRunId === automationRunId
+    );
+  }
+
+  // Helper method to get default county (Maricopa)
+  async getDefaultCounty(): Promise<County> {
+    const counties = await this.getActiveCounties();
+    return counties.find(c => c.name === "Maricopa County") || counties[0];
   }
 }
 

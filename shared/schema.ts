@@ -11,7 +11,8 @@ export const users = pgTable("users", {
 
 export const liens = pgTable("liens", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  recordingNumber: text("recording_number").notNull().unique(),
+  countyId: varchar("county_id").notNull().references(() => counties.id),
+  recordingNumber: text("recording_number").notNull(),
   recordDate: timestamp("record_date").notNull(),
   debtorName: text("debtor_name").notNull(),
   debtorAddress: text("debtor_address"),
@@ -48,6 +49,29 @@ export const systemLogs = pgTable("system_logs", {
   timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 
+export const counties = pgTable("counties", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  state: text("state").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  config: jsonb("config").notNull(), // Stores scraping configuration
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const countyRuns = pgTable("county_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  countyId: varchar("county_id").notNull().references(() => counties.id),
+  automationRunId: varchar("automation_run_id").notNull().references(() => automationRuns.id),
+  status: text("status").notNull(), // running, completed, failed
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  liensFound: integer("liens_found").default(0),
+  liensProcessed: integer("liens_processed").default(0),
+  errorMessage: text("error_message"),
+  metadata: jsonb("metadata"),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -69,6 +93,16 @@ export const insertSystemLogSchema = createInsertSchema(systemLogs).omit({
   timestamp: true,
 });
 
+export const insertCountySchema = createInsertSchema(counties).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCountyRunSchema = createInsertSchema(countyRuns).omit({
+  id: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -81,3 +115,44 @@ export type AutomationRun = typeof automationRuns.$inferSelect;
 
 export type InsertSystemLog = z.infer<typeof insertSystemLogSchema>;
 export type SystemLog = typeof systemLogs.$inferSelect;
+
+export type InsertCounty = z.infer<typeof insertCountySchema>;
+export type County = typeof counties.$inferSelect;
+
+export type InsertCountyRun = z.infer<typeof insertCountyRunSchema>;
+export type CountyRun = typeof countyRuns.$inferSelect;
+
+// County Configuration Interface
+export interface CountyConfig {
+  scrapeType: 'puppeteer' | 'api' | 'selenium';
+  baseUrl: string;
+  searchUrl: string;
+  documentUrlPattern: string;
+  selectors: {
+    documentTypeField?: string;
+    documentTypeValue?: string;
+    startDateField?: string;
+    endDateField?: string;
+    searchButton?: string;
+    resultsTable?: string;
+    recordingNumberLinks?: string;
+    pdfDownloadButton?: string;
+  };
+  parsing: {
+    amountPattern: string;
+    debtorPattern: string;
+    creditorPattern: string;
+    addressPattern: string;
+    datePattern?: string;
+  };
+  delays: {
+    pageLoad: number;
+    betweenRequests: number;
+    pdfLoad: number;
+  };
+  headers?: Record<string, string>;
+  authentication?: {
+    type: 'none' | 'basic' | 'session';
+    credentials?: Record<string, string>;
+  };
+}

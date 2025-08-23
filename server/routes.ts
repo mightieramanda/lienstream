@@ -87,6 +87,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // County management routes
+  app.get("/api/counties", async (req, res) => {
+    try {
+      const counties = await storage.getActiveCounties();
+      res.json(counties);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch counties" });
+    }
+  });
+
+  app.get("/api/counties/states/:state", async (req, res) => {
+    try {
+      const { state } = req.params;
+      const counties = await storage.getCountiesByState(state);
+      res.json(counties);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch counties by state" });
+    }
+  });
+
+  app.post("/api/counties", async (req, res) => {
+    try {
+      const county = await storage.createCounty(req.body);
+      res.json(county);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create county" });
+    }
+  });
+
+  app.patch("/api/counties/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.updateCounty(id, req.body);
+      res.json({ message: "County updated successfully" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update county" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

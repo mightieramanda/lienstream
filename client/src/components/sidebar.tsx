@@ -5,6 +5,7 @@ export function Sidebar() {
 
   const menuItems = [
     { path: "/", icon: "fas fa-tachometer-alt", label: "Dashboard" },
+    { path: "/counties", icon: "fas fa-map", label: "Counties" },
     { path: "/liens", icon: "fas fa-database", label: "Lien Records" },
     { path: "/automation", icon: "fas fa-robot", label: "Automation" },
     { path: "/mailers", icon: "fas fa-envelope", label: "Mailers" },
