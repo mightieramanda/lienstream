@@ -99,8 +99,8 @@ export class PuppeteerCountyScraper extends CountyScraper {
       }
 
       // Set date range (default to yesterday if not provided)
-      const searchStartDate = startDate || new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const searchEndDate = endDate || new Date();
+      const searchStartDate = startDate || new Date('2025-08-21');
+      const searchEndDate = endDate || new Date('2025-08-21');
 
       const formatDate = (date: Date) => {
         return date.toISOString().split('T')[0]; // YYYY-MM-DD format

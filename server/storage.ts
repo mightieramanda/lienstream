@@ -92,17 +92,17 @@ export class MemStorage implements IStorage {
       isActive: true,
       config: {
         scrapeType: 'puppeteer',
-        baseUrl: 'https://recorder.maricopa.gov',
-        searchUrl: 'https://recorder.maricopa.gov/recording/document-search.html',
+        baseUrl: 'https://legacy.recorder.maricopa.gov',
+        searchUrl: 'https://legacy.recorder.maricopa.gov/recdocdata/',
         documentUrlPattern: 'https://legacy.recorder.maricopa.gov/UnOfficialDocs/pdf/{recordingNumber}.pdf',
         selectors: {
-          documentTypeField: 'select[name="documentType"]',
-          documentTypeValue: 'MEDICAL LN',
-          startDateField: 'input[name="startDate"]',
-          endDateField: 'input[name="endDate"]',
-          searchButton: 'button[type="submit"]',
-          resultsTable: '.search-results',
-          recordingNumberLinks: '.search-results tr td:first-child a'
+          documentTypeField: 'select[name="ctl00$ContentPlaceHolder1$ddlDocCodes"]',
+          documentTypeValue: 'MECHLN',
+          startDateField: '',
+          endDateField: '',
+          searchButton: '#ctl00_ContentPlaceHolder1_btnSearch2',
+          resultsTable: 'table[id="ctl00_ContentPlaceHolder1_GridView1"]',
+          recordingNumberLinks: 'table[id="ctl00_ContentPlaceHolder1_GridView1"] tr td:first-child a'
         },
         parsing: {
           amountPattern: 'Amount claimed due for care of patient as of date of recording[:\\s]*\\$?([\\d,]+\\.?\\d*)',
