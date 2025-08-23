@@ -377,171 +377,53 @@ export class PuppeteerCountyScraper extends CountyScraper {
         await Logger.info(`Found potential document links: ${tableDebugInfo.documentLinks.map(link => link.text).slice(0, 3).join(', ')}`, 'county-scraper');
       }
 
-      // Extract recording numbers with retry logic for calendar interface
-      let allRecordingNumbers: string[] = [];
-      let retryCount = 0;
-      const maxRetries = 3;
+      // Simplified extraction focusing on document results
+      await Logger.info(`Extracting recording numbers from search results...`, 'county-scraper');
       
-      while (retryCount < maxRetries) {
-        // Check what type of interface we're seeing
-        const interfaceType = await page.evaluate(() => {
-          const table = document.querySelector('table[id*="GridView"], table[id*="ctl00"]');
-          if (!table) return 'no_table';
+      const recordingNumbers = await page.evaluate(() => {
+        const table = document.querySelector('table[id="ctl00_ContentPlaceHolder1_GridView1"], table[id*="ctl00"]');
+        if (!table) return [];
+        
+        const actualDocumentNumbers: string[] = [];
+        const allLinks = table.querySelectorAll('a');
+        
+        allLinks.forEach(link => {
+          const linkText = link.textContent?.trim() || '';
+          const linkHref = link.href;
           
-          const links = table.querySelectorAll('a');
-          const linkTexts = Array.from(links).map(link => link.textContent?.trim() || '');
-          
-          // Check if we have calendar navigation (numbers 1-31 with # links)
-          const hasCalendarNavigation = linkTexts.some(text => 
-            /^\d{1,2}$/.test(text) && parseInt(text) <= 31
-          );
-          
-          // Check if we have document links (11-digit recording numbers)
-          const hasDocumentLinks = linkTexts.some(text => /^\d{11}$/.test(text));
-          
-          if (hasDocumentLinks) return 'document_results';
-          if (hasCalendarNavigation) return 'calendar_interface';
-          return 'unknown';
+          // Only get links that look like recording numbers
+          if (linkText.match(/^\d{11}$/) &&  // 11-digit recording numbers
+              !linkHref.endsWith('#') &&     // Skip navigation links
+              linkHref.includes('GetRecDataDetail')) {  // Links to actual documents
+            actualDocumentNumbers.push(linkText);
+          }
         });
         
-        await Logger.info(`Interface type detected: ${interfaceType} (attempt ${retryCount + 1})`, 'county-scraper');
-        
-        if (interfaceType === 'document_results') {
-          // Great! We have the actual results. Now extract from all pages.
-          let currentPage = 1;
-          let hasMorePages = true;
-          
-          while (hasMorePages) {
-            await Logger.info(`Scraping page ${currentPage} of results...`, 'county-scraper');
-            
-            // Extract recording numbers from current page
-            const pageRecordingNumbers = await page.evaluate(() => {
-              const table = document.querySelector('table[id="ctl00_ContentPlaceHolder1_GridView1"], table[id*="ctl00"]');
-              if (!table) return [];
-              
-              const actualDocumentNumbers: string[] = [];
-              const allLinks = table.querySelectorAll('a');
-              
-              allLinks.forEach(link => {
-                const linkText = link.textContent?.trim() || '';
-                const linkHref = link.href;
-                
-                // Only get links that look like recording numbers
-                if (linkText.match(/^\d{11}$/) &&  // 11-digit recording numbers
-                    !linkHref.endsWith('#') &&     // Skip navigation links
-                    linkHref.includes('GetRecDataDetail')) {  // Links to actual documents
-                  actualDocumentNumbers.push(linkText);
-                }
-              });
-              
-              return actualDocumentNumbers;
-            });
-            
-            allRecordingNumbers.push(...pageRecordingNumbers);
-            await Logger.info(`Found ${pageRecordingNumbers.length} liens on page ${currentPage}`, 'county-scraper');
-            
-            // Look for next page (simplified)
-            const nextPageExists = await page.evaluate(() => {
-              // Find pagination controls more precisely
-              const allLinks = document.querySelectorAll('a');
-              
-              // Find ">" or numeric next page link
-              for (const link of allLinks) {
-                const text = link.textContent?.trim() || '';
-                const href = link.href || '';
-                
-                // Look for ">" navigation button
-                if (text === '>' && href.includes('Page$Next') && !link.classList.contains('disabled')) {
-                  link.click();
-                  return true;
-                }
-                
-                // Look for numeric page navigation  
-                if (/^\d+$/.test(text) && href.includes('Page$')) {
-                  const currentPageSpan = document.querySelector('span[style*="font-weight:bold"]');
-                  if (currentPageSpan) {
-                    const currentPageNum = parseInt(currentPageSpan.textContent?.trim() || '1');
-                    const linkPageNum = parseInt(text);
-                    
-                    if (linkPageNum === currentPageNum + 1) {
-                      link.click();
-                      return true;
-                    }
-                  }
-                }
-              }
-              
-              return false;
-            });
-            
-            if (nextPageExists) {
-              // Wait for page to load
-              await new Promise(resolve => setTimeout(resolve, 4000));
-              
-              try {
-                await page.waitForSelector('table[id*="GridView"]', { timeout: 10000 });
-                currentPage++;
-              } catch (e) {
-                await Logger.warning(`Failed to load page ${currentPage + 1}, stopping pagination`, 'county-scraper');
-                hasMorePages = false;
-              }
-            } else {
-              await Logger.info(`No more pages found after page ${currentPage}`, 'county-scraper');
-              hasMorePages = false;
-            }
-            
-            // Safety limit
-            if (currentPage > 20) {
-              await Logger.warning(`Reached maximum page limit (20), stopping pagination`, 'county-scraper');
-              hasMorePages = false;
-            }
-          }
-          
-          break; // Exit retry loop - we successfully processed results
-        } 
-        else if (interfaceType === 'calendar_interface') {
-          await Logger.warning(`Got calendar interface instead of results (attempt ${retryCount + 1}). Retrying search...`, 'county-scraper');
-          
-          // Try clicking search again with a different approach
-          try {
-            // Wait a bit more before retry
-            await new Promise(resolve => setTimeout(resolve, 3000));
-            await page.click(this.config.selectors.searchButton!);
-            await new Promise(resolve => setTimeout(resolve, 7000)); // Longer wait
-            await page.waitForSelector('table[id*="GridView"]', { timeout: 15000 });
-          } catch (e) {
-            await Logger.warning(`Retry search failed: ${e}`, 'county-scraper');
-          }
-          
-          retryCount++;
-        } 
-        else {
-          await Logger.error(`Unknown interface type: ${interfaceType}. Retrying...`, 'county-scraper');
-          retryCount++;
-        }
-        
-        if (retryCount < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait before retry
-        }
-      }
-      
-      const recordingNumbers = allRecordingNumbers;
-      await Logger.info(`Found ${recordingNumbers.length} total medical liens across ${currentPage} pages in ${this.county.name}`, 'county-scraper', { count: recordingNumbers.length });
+        return actualDocumentNumbers;
+      });
+      await Logger.info(`Found ${recordingNumbers.length} total medical liens in ${this.county.name}`, 'county-scraper', { count: recordingNumbers.length });
       
       if (recordingNumbers.length > 0) {
         await Logger.info(`First few recording numbers: ${recordingNumbers.slice(0, 3).join(', ')}`, 'county-scraper');
         await Logger.info(`Last few recording numbers: ${recordingNumbers.slice(-3).join(', ')}`, 'county-scraper');
       }
 
-      // Process each recording number
-      for (const recordingNumber of recordingNumbers) {
+      // Process only first few liens for debugging
+      await Logger.info(`Testing PDF content with first 3 recording numbers...`, 'county-scraper');
+      
+      for (let i = 0; i < Math.min(3, recordingNumbers.length); i++) {
+        const recordingNumber = recordingNumbers[i];
         try {
+          await Logger.info(`Processing lien: ${recordingNumber}`, 'county-scraper');
           const lien = await this.processSingleLien(page, recordingNumber);
+          
           if (lien && lien.amount >= 5000) {
             liens.push(lien);
             await Logger.info(`Added lien over $5k from ${this.county.name}: ${recordingNumber} - $${lien.amount}`, 'county-scraper');
           } else if (lien) {
-            await Logger.info(`Skipped lien under $20k from ${this.county.name}: ${recordingNumber} - $${lien.amount}`, 'county-scraper');
+            await Logger.info(`Skipped lien under $5k from ${this.county.name}: ${recordingNumber} - $${lien.amount}`, 'county-scraper');
+          } else {
+            await Logger.warning(`Lien parsing returned null for ${recordingNumber}`, 'county-scraper');
           }
         } catch (error) {
           await Logger.warning(`Failed to process lien ${recordingNumber} from ${this.county.name}: ${error}`, 'county-scraper');
@@ -563,20 +445,31 @@ export class PuppeteerCountyScraper extends CountyScraper {
     try {
       // Construct PDF URL using the pattern
       const pdfUrl = this.config.documentUrlPattern.replace('{recordingNumber}', recordingNumber);
+      await Logger.info(`Navigating to PDF: ${pdfUrl}`, 'county-scraper');
       
       // Navigate to PDF
       await page.goto(pdfUrl, { timeout: 15000 });
       
       // Wait for PDF to load
       await new Promise(resolve => setTimeout(resolve, this.config.delays.pdfLoad));
+      await Logger.info(`PDF loaded for ${recordingNumber}, extracting text...`, 'county-scraper');
       
       // Extract text content from PDF
       const textContent = await page.evaluate(() => {
         return document.body.innerText;
       });
 
+      await Logger.info(`Extracted ${textContent.length} characters from PDF ${recordingNumber}`, 'county-scraper');
+      await Logger.info(`PDF content preview: "${textContent.substring(0, 200)}"`, 'county-scraper');
+      
       // Parse the lien information from the text
       const lien = await this.parseLienFromText(textContent, recordingNumber, pdfUrl);
+      
+      if (lien) {
+        await Logger.info(`Parsed lien ${recordingNumber}: $${lien.amount} - ${lien.debtorName}`, 'county-scraper');
+      } else {
+        await Logger.info(`Could not parse lien data from ${recordingNumber}`, 'county-scraper');
+      }
       
       return lien;
     } catch (error) {
