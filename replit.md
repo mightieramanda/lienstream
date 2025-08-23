@@ -1,0 +1,51 @@
+# Overview
+
+LienScape is a medical lien automation platform that scrapes, processes, and manages liens from county recorder websites (specifically Maricopa County). The system automatically discovers liens over $20,000, enriches debtor information, syncs data to Airtable for CRM management, and triggers direct mail marketing campaigns. Built as a full-stack web application with automated scheduling and comprehensive monitoring capabilities.
+
+# User Preferences
+
+Preferred communication style: Simple, everyday language.
+
+# System Architecture
+
+## Frontend Architecture
+The client uses React with TypeScript in a single-page application (SPA) architecture. The UI is built with shadcn/ui components providing a consistent design system, styled with Tailwind CSS using CSS variables for theming. React Router (wouter) handles navigation, while TanStack Query manages server state and API communication. The application features a sidebar navigation layout with real-time dashboard monitoring.
+
+## Backend Architecture
+The server follows a REST API pattern using Express.js with TypeScript. The application uses a modular service architecture with separate services for web scraping (ScraperService), external integrations (AirtableService), task scheduling (SchedulerService), and centralized logging (Logger). All services are orchestrated through a unified storage abstraction layer that currently uses in-memory storage but can be easily swapped for database implementations.
+
+## Data Storage Solutions
+The system uses Drizzle ORM with PostgreSQL as the primary database. The schema defines four main entities: users (authentication), liens (core data), automationRuns (execution tracking), and systemLogs (audit trail). The current implementation includes an in-memory storage adapter for development, with the database configuration ready for production deployment via Neon Database.
+
+## Automation & Scheduling
+A cron-based scheduler runs daily automation workflows at 6:00 AM, with support for manual triggers via the web interface. The automation pipeline includes: web scraping with Puppeteer, data validation and filtering, Airtable synchronization, and comprehensive logging of each step's success/failure status.
+
+## Authentication & Authorization
+Basic user management is implemented through the users table, though the current system appears to operate without active authentication middleware. The schema supports username/password authentication that can be extended with session management or JWT tokens.
+
+# External Dependencies
+
+## Database Services
+- **Neon Database**: PostgreSQL hosting service configured via DATABASE_URL environment variable
+- **Drizzle ORM**: Database toolkit providing type-safe queries and schema migrations
+
+## Web Scraping Infrastructure  
+- **Puppeteer**: Headless Chrome automation for scraping Maricopa County recorder websites
+- **Node-cron**: Task scheduling for automated daily scraping runs
+
+## External API Integrations
+- **Airtable API**: CRM integration for lead management, requiring AIRTABLE_API_KEY and AIRTABLE_BASE_ID configuration
+- **Data Enrichment Services**: Placeholder infrastructure for enhancing debtor contact information
+
+## UI Framework & Styling
+- **React**: Frontend framework with TypeScript support
+- **shadcn/ui**: Component library built on Radix UI primitives
+- **Tailwind CSS**: Utility-first styling with CSS custom properties
+- **TanStack Query**: Server state management and caching
+- **Wouter**: Lightweight React routing solution
+
+## Development & Build Tools
+- **Vite**: Frontend build tool with HMR and development server
+- **ESBuild**: Backend bundling for production deployment
+- **TypeScript**: Type system across the entire application stack
+- **Replit Integration**: Development environment plugins and runtime error handling
