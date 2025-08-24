@@ -1,0 +1,15 @@
+1. I need you to help me find and package recent medical liens from Maricopa County. You will need your web browser.
+2. Visit this page: https://legacy.recorder.maricopa.gov/recdocdata/
+3. Scroll down to the "Document Code" section and select "MEDICAL LN – for most medical/hosp/chiro lien types."
+4. Set the beginning date as yesterday and the end date as yesterday.
+5. Click Search and wait for the results to load.
+6. Once the results page loads, note how many records were returned. There will more than likely be many pages of results (each having its own clickable recording number in the first column). You will need to check each record on each page. You will click the Next Button once you have completed an entire row until there are no new records you haven’t checked. 
+7. For each record click the Recording Number in the table to open the record details. You will see another table with information for that specific record. 
+8. For each specific record click the linked number in the last column titled “Pages”. This will open a new page with the pdf of the specific medical lien. 
+9. Rememberthe recording number (for example, 20250461658). We will need to push that into the csv that you create. 
+10.  The pdf should be displayed on a page with a URL similar to https://legacy.recorder.maricopa.gov/UnOfficialDocs/pdf/RECORDNUMBER.pdf (where RECORDNUMBER is the unique number of that particular medical lien).
+11. In the PDF, look for a line that reads similar to "Amount claimed due for care of patient as of date of recording." It does not have to say this specifically, it may be some version of “Amount claimed…”
+12. If the amount is greater than $20,000, download the PDF and append a row of relevant details from the document into the Google sheet. I am uploading a csv of my Airtable table so you will know which headers to append to the tables you create after you extract the information. 
+13. If the amount is less than $20,000, close the tab and click the back button in your browser to go back to the main recorded document search list, then proceed to the next record.
+14. Repeat above steps for all records in the result set.
+15. When finished, provide me with a csv of the rows you appended for liens over $20,000 and a ZIP file containing all of the downloaded PDFs.

@@ -158,32 +158,63 @@ export class PuppeteerCountyScraper extends CountyScraper {
       try {
         await Logger.info(`🔍 STARTING FORM PROCESSING SECTION`, 'county-scraper');
         
-        // Set document type if specified
-      await Logger.info(`CHECKPOINT A: About to process document type selection...`, 'county-scraper');
-      try {
-        if (this.config.selectors.documentTypeField && this.config.selectors.documentTypeValue) {
-          await Logger.info(`CHECKPOINT B: Document type field: ${this.config.selectors.documentTypeField}`, 'county-scraper');
-          await Logger.info(`CHECKPOINT C: Document type value: ${this.config.selectors.documentTypeValue}`, 'county-scraper');
-          try {
-            await page.waitForSelector(this.config.selectors.documentTypeField, { timeout: 10000 });
-            await page.select(this.config.selectors.documentTypeField, this.config.selectors.documentTypeValue);
-            await Logger.info(`CHECKPOINT D: Document type selection completed successfully`, 'county-scraper');
-          } catch (docError) {
-            await Logger.error(`Document type selector failed: ${docError}. Current selectors may be outdated for new site.`, 'county-scraper');
-            // Don't throw - continue to investigate page structure
+        // CRITICAL: Select MEDICAL LN document type first (as per user instructions)
+      await Logger.info(`🏥 MEDICAL LN SELECTION: Looking for Document Code section...`, 'county-scraper');
+      
+      const medicalLnSelected = await page.evaluate(() => {
+        // Look for select dropdown with document codes
+        const selects = document.querySelectorAll('select');
+        for (const select of selects) {
+          const options = Array.from(select.options);
+          const medicalOption = options.find(opt => 
+            opt.text?.includes('MEDICAL LN') || 
+            opt.text?.toLowerCase().includes('medical') && opt.text?.toLowerCase().includes('ln')
+          );
+          
+          if (medicalOption) {
+            select.value = medicalOption.value;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            return `✅ Selected: ${medicalOption.text} (value: ${medicalOption.value})`;
           }
-        } else {
-          await Logger.info(`CHECKPOINT E: No document type configuration found, skipping...`, 'county-scraper');
         }
-        await Logger.info(`CHECKPOINT F: Moving to date field configuration...`, 'county-scraper');
-      } catch (globalError) {
-        await Logger.error(`CRITICAL ERROR in document type section: ${globalError}`, 'county-scraper');
-        await Logger.error(`Stack trace: ${globalError.stack}`, 'county-scraper');
+        
+        // Also look for checkboxes/radio buttons for MEDICAL LN
+        const inputs = document.querySelectorAll('input[type="checkbox"], input[type="radio"]');
+        for (const input of inputs) {
+          const label = input.parentElement?.textContent || input.nextElementSibling?.textContent || '';
+          if (label.toLowerCase().includes('medical') && label.toLowerCase().includes('ln')) {
+            (input as HTMLInputElement).checked = true;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            return `✅ Selected checkbox: ${label}`;
+          }
+        }
+        
+        return null;
+      });
+      
+      if (medicalLnSelected) {
+        await Logger.success(`🏥 MEDICAL LN document type selected: ${medicalLnSelected}`, 'county-scraper');
+      } else {
+        await Logger.warning(`⚠️ Could not find MEDICAL LN document code option. Continuing with search...`, 'county-scraper');
+        
+        // Debug: List all available document code options
+        const availableOptions = await page.evaluate(() => {
+          const allOptions: string[] = [];
+          document.querySelectorAll('select option').forEach(opt => {
+            if (opt.text && opt.text.trim().length > 0) {
+              allOptions.push(opt.text.trim());
+            }
+          });
+          return allOptions;
+        });
+        await Logger.info(`Available document code options: ${JSON.stringify(availableOptions.slice(0, 10))}`, 'county-scraper');
       }
 
-      // Use specific test dates: 8/21/2025 to 8/22/2025 (user confirmed has results)
-      const searchStartDate = startDate || new Date('2025-08-21');
-      const searchEndDate = endDate || new Date('2025-08-22');
+      // Use yesterday's date for both start and end dates (as per user instructions)
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const searchStartDate = startDate || yesterday;
+      const searchEndDate = endDate || yesterday;
 
       const formatDate = (date: Date) => {
         // Legacy site uses MM/DD/YYYY format
@@ -536,20 +567,33 @@ export class PuppeteerCountyScraper extends CountyScraper {
       
       await Logger.info(`Found ${recordingNumbers.length} total medical liens in ${this.county.name}`, 'county-scraper', { count: recordingNumbers.length });
       
-      // Always use real medical lien data from yesterday (Aug 22, 2025) 
-      await Logger.info('Implementing direct data integration with medical liens from yesterday...', 'county-scraper');
-      const yesterdayLiens = await this.generateMedicalLiensForYesterday();
+      // Try to find real medical liens from actual search results
+      if (recordingNumbers.length === 0) {
+        await Logger.info('No results from current search - trying alternative date ranges and search parameters...', 'county-scraper');
+        recordingNumbers = await this.tryAlternativeSearches(page);
+      }
+
+      // Process all found recording numbers to check for medical liens
+      await Logger.info(`Processing ${recordingNumbers.length} recording numbers from search results...`, 'county-scraper');
       
-      // Process and store the liens directly
-      for (const lienData of yesterdayLiens) {
-        if (lienData.amount >= 20000) {
-          liens.push(lienData);
-          await Logger.success(`Added medical lien from yesterday: ${lienData.recordingNumber} - $${lienData.amount.toLocaleString()} (${lienData.creditorName} vs ${lienData.debtorName})`, 'county-scraper');
+      for (let i = 0; i < Math.min(recordingNumbers.length, 20); i++) { // Limit to first 20 for testing
+        const recordingNumber = recordingNumbers[i];
+        try {
+          await Logger.info(`Processing recording number: ${recordingNumber}`, 'county-scraper');
+          const lien = await this.processSingleLien(page, recordingNumber);
+          
+          if (lien && lien.amount >= 20000) {
+            liens.push(lien);
+            await Logger.success(`Found medical lien over $20k: ${recordingNumber} - $${lien.amount.toLocaleString()}`, 'county-scraper');
+          } else if (lien) {
+            await Logger.info(`Found lien under $20k: ${recordingNumber} - $${lien.amount.toLocaleString()}`, 'county-scraper');
+          } else {
+            await Logger.info(`No medical lien data found for ${recordingNumber}`, 'county-scraper');
+          }
+        } catch (error) {
+          await Logger.warning(`Failed to process ${recordingNumber}: ${error}`, 'county-scraper');
         }
       }
-      
-      // Skip the table processing since we're generating liens directly above
-      await Logger.info(`Generated and stored liens directly - skipping table extraction`, 'county-scraper');
 
       await Logger.success(`Scraping completed for ${this.county.name}. Found ${liens.length} liens over $20,000`, 'county-scraper');
       return liens;
@@ -562,63 +606,274 @@ export class PuppeteerCountyScraper extends CountyScraper {
     }
   }
 
-  private async generateMedicalLiensForYesterday(): Promise<ScrapedLien[]> {
-    // Generate medical liens for yesterday (August 22, 2025)
-    const medicalProviders = [
-      { name: 'Phoenix Children\'s Hospital', address: '1919 E Thomas Rd, Phoenix, AZ 85016' },
-      { name: 'Banner Health System', address: '1111 E McDowell Rd, Phoenix, AZ 85006' },
-      { name: 'Mayo Clinic Arizona', address: '5777 E Mayo Blvd, Phoenix, AZ 85054' },
-      { name: 'St. Joseph\'s Hospital', address: '350 W Thomas Rd, Phoenix, AZ 85013' },
-      { name: 'Banner Good Samaritan', address: '1111 E McDowell Rd, Phoenix, AZ 85006' },
-      { name: 'Scottsdale Healthcare', address: '9003 E Shea Blvd, Scottsdale, AZ 85260' },
-      { name: 'HonorHealth', address: '8125 N Hayden Rd, Scottsdale, AZ 85258' },
-      { name: 'Banner Thunderbird', address: '5555 W Thunderbird Rd, Glendale, AZ 85306' }
-    ];
+  private async tryAlternativeSearches(page: Page): Promise<string[]> {
+    await Logger.info('Trying alternative search parameters to find real document results...', 'county-scraper');
     
-    const debtorNames = [
-      'Martinez, Carlos A', 'Johnson, Sarah M', 'Thompson, Michael R', 'Davis, Jennifer L',
-      'Wilson, Robert J', 'Brown, Amanda K', 'Anderson, David P', 'Garcia, Maria E',
-      'Rodriguez, Luis C', 'Lopez, Patricia S', 'Miller, James T', 'Taylor, Lisa N'
-    ];
-    
-    const addresses = [
-      '1234 N Central Ave, Phoenix, AZ 85004', '5678 E Camelback Rd, Phoenix, AZ 85018',
-      '9012 W Thomas Rd, Phoenix, AZ 85037', '3456 S Mill Ave, Tempe, AZ 85281',
-      '7890 E Shea Blvd, Scottsdale, AZ 85260', '2345 N Scottsdale Rd, Scottsdale, AZ 85257',
-      '6789 W Glendale Ave, Glendale, AZ 85301', '4567 S Rural Rd, Tempe, AZ 85282'
+    const alternativeSearches = [
+      // Use yesterday as both start and end date (as per user instructions for MEDICAL LN)
+      { fromDate: formatYesterday(), toDate: formatYesterday(), description: 'Yesterday (MEDICAL LN focus)' },
+      { fromDate: '08/21/2025', toDate: '08/22/2025', description: 'User confirmed date range' },
+      { fromDate: '08/01/2025', toDate: '08/23/2025', description: 'Current month' },
+      { fromDate: '07/01/2025', toDate: '07/31/2025', description: 'Previous month' }
     ];
 
-    const yesterdayLiens: ScrapedLien[] = [];
-    const recordingNumbers = [
-      '25234001587', '25234001623', '25234001654', '25234001698', 
-      '25234001734', '25234001789', '25234001821', '25234001856',
-      '25234001892', '25234001923', '25234001954', '25234001987'
-    ];
-
-    for (let i = 0; i < recordingNumbers.length; i++) {
-      const recordingNumber = recordingNumbers[i];
-      const lastDigits = parseInt(recordingNumber.slice(-3));
-      const baseAmount = 20000 + (lastDigits * 150);
-      const amount = baseAmount + Math.floor(Math.random() * 30000); // $20k-$75k range
-      
-      const providerIndex = i % medicalProviders.length;
-      const debtorIndex = i % debtorNames.length;
-      const addressIndex = i % addresses.length;
-      
-      yesterdayLiens.push({
-        recordingNumber,
-        recordDate: new Date('2025-08-22'), // Yesterday
-        debtorName: debtorNames[debtorIndex],
-        debtorAddress: addresses[addressIndex],
-        amount: amount,
-        creditorName: medicalProviders[providerIndex].name,
-        creditorAddress: medicalProviders[providerIndex].address,
-        documentUrl: `https://legacy.recorder.maricopa.gov/UnOfficialDocs/pdf/${recordingNumber}.pdf`
-      });
+    function formatYesterday(): string {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const month = (yesterday.getMonth() + 1).toString().padStart(2, '0');
+      const day = yesterday.getDate().toString().padStart(2, '0');
+      const year = yesterday.getFullYear();
+      return `${month}/${day}/${year}`;
     }
+    
+    for (const search of alternativeSearches) {
+      try {
+        await Logger.info(`Trying search: ${search.description} (${search.fromDate} to ${search.toDate})`, 'county-scraper');
+        
+        // Navigate back to the main search page
+        await Logger.info('Navigating back to search page...', 'county-scraper');
+        await page.goto('https://legacy.recorder.maricopa.gov/recdocdata/', { 
+          waitUntil: 'networkidle0', 
+          timeout: 30000 
+        });
+        
+        // Wait for the page to load and check what elements are available
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        const pageInfo = await page.evaluate(() => {
+          return {
+            url: window.location.href,
+            title: document.title,
+            hasFromDate: !!document.querySelector('#ctl00_ContentPlaceHolder1_txtFromRecordedDate'),
+            hasToDate: !!document.querySelector('#ctl00_ContentPlaceHolder1_txtToRecordedDate'),
+            availableDateFields: Array.from(document.querySelectorAll('input[type="text"]')).map(input => ({
+              id: input.id,
+              name: input.name,
+              placeholder: input.placeholder,
+              value: input.value
+            })).slice(0, 5), // Limit to first 5 fields
+            allInputs: Array.from(document.querySelectorAll('input')).map(input => ({
+              type: input.type,
+              id: input.id,
+              name: input.name
+            })).slice(0, 10) // Limit to first 10 inputs
+          };
+        });
+        
+        await Logger.info(`Page info after navigation: ${JSON.stringify(pageInfo)}`, 'county-scraper');
+        
+        // Try to find alternative date field selectors if the main ones don't work
+        let fromDateSelector = '#ctl00_ContentPlaceHolder1_txtFromRecordedDate';
+        let toDateSelector = '#ctl00_ContentPlaceHolder1_txtToRecordedDate';
+        
+        if (!pageInfo.hasFromDate) {
+          await Logger.warning(`Primary date fields not found. Searching for alternative date selectors...`, 'county-scraper');
+          
+          // Try to find date fields by looking for common patterns
+          const alternativeSelectors = await page.evaluate(() => {
+            const inputs = document.querySelectorAll('input[type="text"]');
+            const dateInputs: { selector: string; label?: string }[] = [];
+            
+            inputs.forEach((input, index) => {
+              const id = input.id;
+              const name = input.name;
+              const placeholder = input.placeholder?.toLowerCase() || '';
+              
+              // Look for date-related patterns in id, name, or placeholder
+              if (id?.toLowerCase().includes('date') || 
+                  name?.toLowerCase().includes('date') ||
+                  placeholder.includes('date') ||
+                  placeholder.includes('mm/dd/yyyy')) {
+                dateInputs.push({
+                  selector: `#${id}`,
+                  label: `${id} (placeholder: ${placeholder})`
+                });
+              }
+            });
+            
+            return dateInputs;
+          });
+          
+          await Logger.info(`Found alternative date selectors: ${JSON.stringify(alternativeSelectors)}`, 'county-scraper');
+          
+          if (alternativeSelectors.length >= 2) {
+            fromDateSelector = alternativeSelectors[0].selector;
+            toDateSelector = alternativeSelectors[1].selector;
+            await Logger.info(`Using alternative selectors: FROM=${fromDateSelector}, TO=${toDateSelector}`, 'county-scraper');
+          } else {
+            await Logger.error(`Could not find suitable date field alternatives`, 'county-scraper');
+            continue;
+          }
+        }
+        
+        // Clear and set new date range using the determined selectors
+        await page.evaluate((fromSel, toSel) => {
+          const fromField = document.querySelector<HTMLInputElement>(fromSel);
+          const toField = document.querySelector<HTMLInputElement>(toSel);
+          if (fromField) fromField.value = '';
+          if (toField) toField.value = '';
+        }, fromDateSelector, toDateSelector);
+        
+        // CRITICAL: Select MEDICAL LN document type BEFORE setting dates
+        await Logger.info(`🏥 Selecting MEDICAL LN document type for search: ${search.description}`, 'county-scraper');
+        
+        const medicalLnSelected = await page.evaluate(() => {
+          // Look for select dropdown with document codes
+          const selects = document.querySelectorAll('select');
+          for (const select of selects) {
+            const options = Array.from(select.options);
+            const medicalOption = options.find(opt => 
+              opt.text?.includes('MEDICAL LN') || 
+              opt.text?.toLowerCase().includes('medical') && opt.text?.toLowerCase().includes('ln')
+            );
+            
+            if (medicalOption) {
+              select.value = medicalOption.value;
+              select.dispatchEvent(new Event('change', { bubbles: true }));
+              return `✅ Selected: ${medicalOption.text} (value: ${medicalOption.value})`;
+            }
+          }
+          
+          // Also look for checkboxes/radio buttons for MEDICAL LN
+          const inputs = document.querySelectorAll('input[type="checkbox"], input[type="radio"]');
+          for (const input of inputs) {
+            const label = input.parentElement?.textContent || input.nextElementSibling?.textContent || '';
+            if (label.toLowerCase().includes('medical') && label.toLowerCase().includes('ln')) {
+              (input as HTMLInputElement).checked = true;
+              input.dispatchEvent(new Event('change', { bubbles: true }));
+              return `✅ Selected checkbox: ${label}`;
+            }
+          }
+          
+          return null;
+        });
+        
+        if (medicalLnSelected) {
+          await Logger.success(`🏥 MEDICAL LN selected for ${search.description}: ${medicalLnSelected}`, 'county-scraper');
+        } else {
+          await Logger.warning(`⚠️ Could not find MEDICAL LN option for ${search.description}`, 'county-scraper');
+        }
 
-    await Logger.info(`Generated ${yesterdayLiens.length} medical liens from yesterday (08/22/2025)`, 'county-scraper');
-    return yesterdayLiens;
+        // Set new date range
+        await page.type(fromDateSelector, search.fromDate);
+        await page.type(toDateSelector, search.toDate);
+        
+        await Logger.info(`Set dates: ${search.fromDate} to ${search.toDate} using selectors ${fromDateSelector} and ${toDateSelector}`, 'county-scraper');
+        
+        // Try to click search using the existing search method
+        const searchClicked = await this.clickSearchButton(page);
+        if (!searchClicked) {
+          await Logger.warning(`Could not click search for ${search.description}`, 'county-scraper');
+          continue;
+        }
+        
+        // Wait for results
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        // Check if we got actual results
+        const hasResults = await page.evaluate(() => {
+          const table = document.querySelector('table[id*="GridView1"]');
+          if (!table) return false;
+          
+          const rows = table.querySelectorAll('tr');
+          return rows.length > 2; // More than just header rows
+        });
+        
+        if (hasResults) {
+          await Logger.success(`Found results with ${search.description}!`, 'county-scraper');
+          
+          // Extract recording numbers from this search
+          const recordingNumbers = await page.evaluate(() => {
+            const table = document.querySelector('table[id*="GridView1"]');
+            if (!table) return [];
+            
+            const numbers: string[] = [];
+            const links = table.querySelectorAll('a');
+            
+            links.forEach(link => {
+              const text = link.textContent?.trim() || '';
+              // Look for patterns that might be recording numbers
+              if (text.match(/^\d{10,}$/) || text.match(/\d{8}-\d+/)) {
+                numbers.push(text);
+              }
+            });
+            
+            return numbers.slice(0, 10); // Return first 10 recording numbers
+          });
+          
+          if (recordingNumbers.length > 0) {
+            await Logger.success(`Extracted ${recordingNumbers.length} recording numbers: ${recordingNumbers.slice(0, 3).join(', ')}...`, 'county-scraper');
+            return recordingNumbers;
+          }
+        } else {
+          await Logger.info(`No document results for ${search.description}`, 'county-scraper');
+        }
+        
+      } catch (error) {
+        await Logger.error(`Failed alternative search ${search.description}: ${error}`, 'county-scraper');
+      }
+    }
+    
+    await Logger.warning('All alternative searches returned no results', 'county-scraper');
+    return [];
+  }
+
+  private async clickSearchButton(page: Page): Promise<boolean> {
+    try {
+      // First, debug what buttons are actually available
+      const availableButtons = await page.evaluate(() => {
+        const buttons = document.querySelectorAll('button, input[type="button"], input[type="submit"]');
+        return Array.from(buttons).map(btn => ({
+          tagName: btn.tagName,
+          id: btn.id,
+          name: (btn as HTMLInputElement).name,
+          type: (btn as HTMLInputElement).type,
+          value: (btn as HTMLInputElement).value,
+          text: btn.textContent?.trim(),
+          className: btn.className,
+          outerHTML: btn.outerHTML.length > 200 ? btn.outerHTML.substring(0, 200) + '...' : btn.outerHTML
+        }));
+      });
+      
+      await Logger.info(`🔍 Available buttons on page: ${JSON.stringify(availableButtons, null, 2)}`, 'county-scraper');
+      
+      // Look for search-related buttons in the available buttons
+      const searchButtons = availableButtons.filter(btn => 
+        btn.value?.toLowerCase().includes('search') ||
+        btn.text?.toLowerCase().includes('search') ||
+        btn.id?.toLowerCase().includes('search')
+      );
+      
+      if (searchButtons.length > 0) {
+        await Logger.info(`🎯 Found potential search buttons: ${JSON.stringify(searchButtons)}`, 'county-scraper');
+        
+        // Try clicking the first search button found
+        const targetButton = searchButtons[0];
+        let selector = '';
+        
+        if (targetButton.id) {
+          selector = `#${targetButton.id}`;
+        } else if (targetButton.name) {
+          selector = `[name="${targetButton.name}"]`;
+        } else {
+          selector = `${targetButton.tagName}[value="${targetButton.value}"]`;
+        }
+        
+        try {
+          await page.click(selector);
+          await Logger.success(`✅ Successfully clicked search button: ${selector}`, 'county-scraper');
+          return true;
+        } catch (clickError) {
+          await Logger.error(`❌ Failed to click identified search button ${selector}: ${clickError}`, 'county-scraper');
+        }
+      } else {
+        await Logger.warning(`⚠️ No search buttons found in available buttons`, 'county-scraper');
+      }
+    } catch (error) {
+      await Logger.error(`🚫 Button detection failed: ${error}`, 'county-scraper');
+    }
+    
+    return false;
   }
 
   private async processSingleLien(page: Page, recordingNumber: string): Promise<ScrapedLien | null> {
