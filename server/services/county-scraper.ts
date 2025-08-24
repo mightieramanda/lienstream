@@ -749,8 +749,6 @@ export class PuppeteerCountyScraper extends CountyScraper {
         } else {
           await Logger.info(`🔍 Searching ALL document types for: ${search.description}`, 'county-scraper');
         }
-          await Logger.warning(`⚠️ Could not find MEDICAL LN option for ${search.description}`, 'county-scraper');
-        }
 
         // Set new date range
         await page.type(fromDateSelector, search.fromDate);
