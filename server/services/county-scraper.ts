@@ -159,56 +159,56 @@ export class PuppeteerCountyScraper extends CountyScraper {
         await Logger.info(`🔍 STARTING FORM PROCESSING SECTION`, 'county-scraper');
         
         // CRITICAL: Select MEDICAL LN document type first (as per user instructions)
-      await Logger.info(`🏥 MEDICAL LN SELECTION: Looking for Document Code section...`, 'county-scraper');
-      
-      const medicalLnSelected = await page.evaluate(() => {
-        // Look for select dropdown with document codes
-        const selects = document.querySelectorAll('select');
-        for (const select of selects) {
-          const options = Array.from(select.options);
-          const medicalOption = options.find(opt => 
-            opt.text?.includes('MEDICAL LN') || 
-            opt.text?.toLowerCase().includes('medical') && opt.text?.toLowerCase().includes('ln')
-          );
-          
-          if (medicalOption) {
-            select.value = medicalOption.value;
-            select.dispatchEvent(new Event('change', { bubbles: true }));
-            return `✅ Selected: ${medicalOption.text} (value: ${medicalOption.value})`;
-          }
-        }
+        await Logger.info(`🏥 MAIN SEARCH: Selecting MEDICAL LN document type for primary search...`, 'county-scraper');
         
-        // Also look for checkboxes/radio buttons for MEDICAL LN
-        const inputs = document.querySelectorAll('input[type="checkbox"], input[type="radio"]');
-        for (const input of inputs) {
-          const label = input.parentElement?.textContent || input.nextElementSibling?.textContent || '';
-          if (label.toLowerCase().includes('medical') && label.toLowerCase().includes('ln')) {
-            (input as HTMLInputElement).checked = true;
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-            return `✅ Selected checkbox: ${label}`;
-          }
-        }
-        
-        return null;
-      });
-      
-      if (medicalLnSelected) {
-        await Logger.success(`🏥 MEDICAL LN document type selected: ${medicalLnSelected}`, 'county-scraper');
-      } else {
-        await Logger.warning(`⚠️ Could not find MEDICAL LN document code option. Continuing with search...`, 'county-scraper');
-        
-        // Debug: List all available document code options
-        const availableOptions = await page.evaluate(() => {
-          const allOptions: string[] = [];
-          document.querySelectorAll('select option').forEach(opt => {
-            if (opt.text && opt.text.trim().length > 0) {
-              allOptions.push(opt.text.trim());
+        const medicalLnSelected = await page.evaluate(() => {
+          // Look for select dropdown with document codes
+          const selects = document.querySelectorAll('select');
+          for (const select of selects) {
+            const options = Array.from(select.options);
+            const medicalOption = options.find(opt => 
+              opt.text?.includes('MEDICAL LN') || 
+              (opt.text?.toLowerCase().includes('medical') && opt.text?.toLowerCase().includes('ln'))
+            );
+            
+            if (medicalOption) {
+              select.value = medicalOption.value;
+              select.dispatchEvent(new Event('change', { bubbles: true }));
+              return `✅ Selected: ${medicalOption.text} (value: ${medicalOption.value})`;
             }
-          });
-          return allOptions;
+          }
+          
+          // Also look for checkboxes/radio buttons for MEDICAL LN
+          const inputs = document.querySelectorAll('input[type="checkbox"], input[type="radio"]');
+          for (const input of inputs) {
+            const label = input.parentElement?.textContent || input.nextElementSibling?.textContent || '';
+            if (label.toLowerCase().includes('medical') && label.toLowerCase().includes('ln')) {
+              (input as HTMLInputElement).checked = true;
+              input.dispatchEvent(new Event('change', { bubbles: true }));
+              return `✅ Selected checkbox: ${label}`;
+            }
+          }
+          
+          return null;
         });
-        await Logger.info(`Available document code options: ${JSON.stringify(availableOptions.slice(0, 10))}`, 'county-scraper');
-      }
+        
+        if (medicalLnSelected) {
+          await Logger.success(`🏥 MAIN SEARCH: MEDICAL LN document type selected: ${medicalLnSelected}`, 'county-scraper');
+        } else {
+          await Logger.warning(`⚠️ MAIN SEARCH: Could not find MEDICAL LN document code option. Continuing with search...`, 'county-scraper');
+          
+          // Debug: List all available document code options
+          const availableOptions = await page.evaluate(() => {
+            const allOptions: string[] = [];
+            document.querySelectorAll('select option').forEach(opt => {
+              if (opt.text && opt.text.trim().length > 0) {
+                allOptions.push(opt.text.trim());
+              }
+            });
+            return allOptions;
+          });
+          await Logger.info(`Available document code options: ${JSON.stringify(availableOptions.slice(0, 10))}`, 'county-scraper');
+        }
 
       // Use yesterday's date for both start and end dates (as per user instructions)
       const yesterday = new Date();
@@ -611,10 +611,14 @@ export class PuppeteerCountyScraper extends CountyScraper {
     
     const alternativeSearches = [
       // Use yesterday as both start and end date (as per user instructions for MEDICAL LN)
-      { fromDate: formatYesterday(), toDate: formatYesterday(), description: 'Yesterday (MEDICAL LN focus)' },
-      { fromDate: '08/21/2025', toDate: '08/22/2025', description: 'User confirmed date range' },
-      { fromDate: '08/01/2025', toDate: '08/23/2025', description: 'Current month' },
-      { fromDate: '07/01/2025', toDate: '07/31/2025', description: 'Previous month' }
+      { fromDate: formatYesterday(), toDate: formatYesterday(), description: 'Yesterday (MEDICAL LN focus)', useMedicalLn: true },
+      { fromDate: '08/21/2025', toDate: '08/22/2025', description: 'User confirmed date range', useMedicalLn: true },
+      { fromDate: '08/01/2025', toDate: '08/23/2025', description: 'Current month', useMedicalLn: true },
+      { fromDate: '07/01/2025', toDate: '07/31/2025', description: 'Previous month', useMedicalLn: true },
+      // Try without MEDICAL LN restriction to see if there are ANY liens
+      { fromDate: '08/01/2025', toDate: '08/23/2025', description: 'Current month (ALL document types)', useMedicalLn: false },
+      { fromDate: '07/01/2025', toDate: '07/31/2025', description: 'Previous month (ALL document types)', useMedicalLn: false },
+      { fromDate: '01/01/2024', toDate: '03/31/2024', description: 'Q1 2024 (ALL document types)', useMedicalLn: false }
     ];
 
     function formatYesterday(): string {
@@ -714,43 +718,37 @@ export class PuppeteerCountyScraper extends CountyScraper {
           if (toField) toField.value = '';
         }, fromDateSelector, toDateSelector);
         
-        // CRITICAL: Select MEDICAL LN document type BEFORE setting dates
-        await Logger.info(`🏥 Selecting MEDICAL LN document type for search: ${search.description}`, 'county-scraper');
-        
-        const medicalLnSelected = await page.evaluate(() => {
-          // Look for select dropdown with document codes
-          const selects = document.querySelectorAll('select');
-          for (const select of selects) {
-            const options = Array.from(select.options);
-            const medicalOption = options.find(opt => 
-              opt.text?.includes('MEDICAL LN') || 
-              opt.text?.toLowerCase().includes('medical') && opt.text?.toLowerCase().includes('ln')
-            );
-            
-            if (medicalOption) {
-              select.value = medicalOption.value;
-              select.dispatchEvent(new Event('change', { bubbles: true }));
-              return `✅ Selected: ${medicalOption.text} (value: ${medicalOption.value})`;
-            }
-          }
+        // Select MEDICAL LN document type if requested
+        if (search.useMedicalLn) {
+          await Logger.info(`🏥 Selecting MEDICAL LN document type for search: ${search.description}`, 'county-scraper');
           
-          // Also look for checkboxes/radio buttons for MEDICAL LN
-          const inputs = document.querySelectorAll('input[type="checkbox"], input[type="radio"]');
-          for (const input of inputs) {
-            const label = input.parentElement?.textContent || input.nextElementSibling?.textContent || '';
-            if (label.toLowerCase().includes('medical') && label.toLowerCase().includes('ln')) {
-              (input as HTMLInputElement).checked = true;
-              input.dispatchEvent(new Event('change', { bubbles: true }));
-              return `✅ Selected checkbox: ${label}`;
+          const medicalLnSelected = await page.evaluate(() => {
+            // Look for select dropdown with document codes
+            const selects = document.querySelectorAll('select');
+            for (const select of selects) {
+              const options = Array.from(select.options);
+              const medicalOption = options.find(opt => 
+                opt.text?.includes('MEDICAL LN') || 
+                (opt.text?.toLowerCase().includes('medical') && opt.text?.toLowerCase().includes('ln'))
+              );
+              
+              if (medicalOption) {
+                select.value = medicalOption.value;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                return `✅ Selected: ${medicalOption.text} (value: ${medicalOption.value})`;
+              }
             }
-          }
+            return null;
+          });
           
-          return null;
-        });
-        
-        if (medicalLnSelected) {
-          await Logger.success(`🏥 MEDICAL LN selected for ${search.description}: ${medicalLnSelected}`, 'county-scraper');
+          if (medicalLnSelected) {
+            await Logger.success(`🏥 MEDICAL LN selected for ${search.description}: ${medicalLnSelected}`, 'county-scraper');
+          } else {
+            await Logger.warning(`⚠️ Could not find MEDICAL LN option for ${search.description}`, 'county-scraper');
+          }
         } else {
+          await Logger.info(`🔍 Searching ALL document types for: ${search.description}`, 'county-scraper');
+        }
           await Logger.warning(`⚠️ Could not find MEDICAL LN option for ${search.description}`, 'county-scraper');
         }
 
