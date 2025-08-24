@@ -258,6 +258,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
           // Clear any existing content first
           await page.click(this.config.selectors.startDateField, { clickCount: 3 });
           await page.keyboard.press('Backspace');
+          // Force 08/22/2025 for testing
           await page.type(this.config.selectors.startDateField, '08/22/2025');
           await Logger.info(`Successfully filled start date field`, 'county-scraper');
         } catch (error) {
@@ -291,6 +292,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
           // Clear any existing content first
           await page.click(this.config.selectors.endDateField, { clickCount: 3 });
           await page.keyboard.press('Backspace');
+          // Force 08/22/2025 for testing
           await page.type(this.config.selectors.endDateField, '08/22/2025');
           await Logger.info(`Successfully filled end date field`, 'county-scraper');
         } catch (error) {
@@ -537,14 +539,64 @@ export class PuppeteerCountyScraper extends CountyScraper {
         await Logger.info(`Found potential document links: ${tableDebugInfo.documentLinks.map(link => link.text).slice(0, 3).join(', ')}`, 'county-scraper');
       }
 
-      // Simplified extraction focusing on document results
-      await Logger.info(`Extracting recording numbers from search results...`, 'county-scraper');
+      // Enhanced extraction with better debugging
+      await Logger.info(`🔍 Extracting recording numbers from search results for 08/22/2025...`, 'county-scraper');
+      
+      // Wait longer for results to fully load
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      // Take screenshot for debugging
+      await page.screenshot({ path: 'debug-08-22-results.png' });
+      await Logger.info(`📸 Screenshot saved to debug-08-22-results.png`, 'county-scraper');
+      
+      // Debug: Check what's on the page
+      const pageDebugContent = await page.evaluate(() => {
+        const bodyText = document.body.innerText || '';
+        const hasNoResults = bodyText.includes('No records') || bodyText.includes('0 results');
+        const allNumbers = bodyText.match(/\b\d{10,12}\b/g) || [];
+        return {
+          hasNoResults,
+          numbersFound: allNumbers.slice(0, 10),
+          pageSnippet: bodyText.substring(0, 500)
+        };
+      });
+      
+      await Logger.info(`📄 Page content check: ${JSON.stringify(pageDebugContent)}`, 'county-scraper');
       
       let recordingNumbers: string[] = [];
       try {
         recordingNumbers = await page.evaluate(() => {
-          const table = document.querySelector('table[id="ctl00_ContentPlaceHolder1_GridView1"], table[id*="ctl00"]');
-          if (!table) return [];
+          // Try multiple table selectors
+          const tableSelectors = [
+            'table[id="ctl00_ContentPlaceHolder1_GridView1"]',
+            'table[id*="GridView"]',
+            'table[id*="ctl00"]',
+            'table'
+          ];
+          
+          let table = null;
+          for (const selector of tableSelectors) {
+            const found = document.querySelector(selector);
+            if (found && found.querySelectorAll('tr').length > 1) {
+              table = found;
+              console.log(`Using table selector: ${selector}`);
+              break;
+            }
+          }
+          
+          if (!table) {
+            console.log('No table found, looking for links directly');
+            // If no table, look for recording number links anywhere on page
+            const allLinks = document.querySelectorAll('a');
+            const numbers: string[] = [];
+            allLinks.forEach(link => {
+              const text = link.textContent?.trim() || '';
+              if (text.match(/^\d{10,12}$/)) {
+                numbers.push(text);
+              }
+            });
+            return numbers;
+          }
           
           const actualDocumentNumbers: string[] = [];
           const allLinks = table.querySelectorAll('a');
@@ -553,13 +605,24 @@ export class PuppeteerCountyScraper extends CountyScraper {
             const linkText = link.textContent?.trim() || '';
             const linkHref = link.href;
             
-            // Only get links that look like recording numbers
-            if (linkText.match(/^\d{11}$/) &&  // 11-digit recording numbers
-                !linkHref.endsWith('#') &&     // Skip navigation links
-                linkHref.includes('GetRecDataDetail')) {  // Links to actual documents
+            // More flexible matching - 10-12 digit numbers
+            if (linkText.match(/^\d{10,12}$/) &&  
+                !linkHref.endsWith('#')) {  // Skip navigation links
               actualDocumentNumbers.push(linkText);
+              console.log(`Found recording number: ${linkText}`);
             }
           });
+          
+          // Also check table cells directly
+          if (actualDocumentNumbers.length === 0 && table) {
+            const cells = table.querySelectorAll('td');
+            cells.forEach(cell => {
+              const text = cell.textContent?.trim() || '';
+              if (text.match(/^\d{10,12}$/)) {
+                actualDocumentNumbers.push(text);
+              }
+            });
+          }
           
           return actualDocumentNumbers;
         });
