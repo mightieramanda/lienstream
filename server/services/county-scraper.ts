@@ -210,11 +210,10 @@ export class PuppeteerCountyScraper extends CountyScraper {
           await Logger.info(`Available document code options: ${JSON.stringify(availableOptions.slice(0, 10))}`, 'county-scraper');
         }
 
-      // Use yesterday's date for both start and end dates (as per user instructions)
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const searchStartDate = startDate || yesterday;
-      const searchEndDate = endDate || yesterday;
+      // Use 08/22/2025 as the primary test date
+      const testDate = new Date('2025-08-22');
+      const searchStartDate = startDate || testDate;
+      const searchEndDate = endDate || testDate;
 
       const formatDate = (date: Date) => {
         // Legacy site uses MM/DD/YYYY format
@@ -223,6 +222,10 @@ export class PuppeteerCountyScraper extends CountyScraper {
         const year = date.getFullYear();
         return `${month}/${day}/${year}`;
       };
+      
+      // Override with specific test date 08/22/2025
+      const specificTestDate = '08/22/2025';
+      await Logger.info(`🎯 Testing with specific date: ${specificTestDate}`, 'county-scraper');
 
       // Debug configuration
       await Logger.info(`CHECKPOINT G: Starting date field configuration check:`, 'county-scraper');
@@ -255,7 +258,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
           // Clear any existing content first
           await page.click(this.config.selectors.startDateField, { clickCount: 3 });
           await page.keyboard.press('Backspace');
-          await page.type(this.config.selectors.startDateField, formatDate(searchStartDate));
+          await page.type(this.config.selectors.startDateField, '08/22/2025');
           await Logger.info(`Successfully filled start date field`, 'county-scraper');
         } catch (error) {
           await Logger.error(`Failed to fill start date field: ${error}`, 'county-scraper');
@@ -288,7 +291,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
           // Clear any existing content first
           await page.click(this.config.selectors.endDateField, { clickCount: 3 });
           await page.keyboard.press('Backspace');
-          await page.type(this.config.selectors.endDateField, formatDate(searchEndDate));
+          await page.type(this.config.selectors.endDateField, '08/22/2025');
           await Logger.info(`Successfully filled end date field`, 'county-scraper');
         } catch (error) {
           await Logger.error(`Failed to fill end date field: ${error}`, 'county-scraper');
@@ -610,15 +613,16 @@ export class PuppeteerCountyScraper extends CountyScraper {
     await Logger.info('Trying alternative search parameters to find real document results...', 'county-scraper');
     
     const alternativeSearches = [
-      // Use yesterday as both start and end date (as per user instructions for MEDICAL LN)
+      // Test specific date 08/22/2025 as requested
+      { fromDate: '08/22/2025', toDate: '08/22/2025', description: 'August 22, 2025 (MEDICAL LN)', useMedicalLn: true },
+      { fromDate: '08/22/2025', toDate: '08/22/2025', description: 'August 22, 2025 (ALL types)', useMedicalLn: false },
       { fromDate: formatYesterday(), toDate: formatYesterday(), description: 'Yesterday (MEDICAL LN focus)', useMedicalLn: true },
       { fromDate: '08/21/2025', toDate: '08/22/2025', description: 'User confirmed date range', useMedicalLn: true },
       { fromDate: '08/01/2025', toDate: '08/23/2025', description: 'Current month', useMedicalLn: true },
       { fromDate: '07/01/2025', toDate: '07/31/2025', description: 'Previous month', useMedicalLn: true },
       // Try without MEDICAL LN restriction to see if there are ANY liens
       { fromDate: '08/01/2025', toDate: '08/23/2025', description: 'Current month (ALL document types)', useMedicalLn: false },
-      { fromDate: '07/01/2025', toDate: '07/31/2025', description: 'Previous month (ALL document types)', useMedicalLn: false },
-      { fromDate: '01/01/2024', toDate: '03/31/2024', description: 'Q1 2024 (ALL document types)', useMedicalLn: false }
+      { fromDate: '07/01/2025', toDate: '07/31/2025', description: 'Previous month (ALL document types)', useMedicalLn: false }
     ];
 
     function formatYesterday(): string {
@@ -750,11 +754,12 @@ export class PuppeteerCountyScraper extends CountyScraper {
           await Logger.info(`🔍 Searching ALL document types for: ${search.description}`, 'county-scraper');
         }
 
-        // Set new date range
-        await page.type(fromDateSelector, search.fromDate);
-        await page.type(toDateSelector, search.toDate);
+        // Set new date range - force 08/22/2025 for testing
+        const testDate = search.description.includes('August 22') ? '08/22/2025' : search.fromDate;
+        await page.type(fromDateSelector, testDate);
+        await page.type(toDateSelector, testDate);
         
-        await Logger.info(`Set dates: ${search.fromDate} to ${search.toDate} using selectors ${fromDateSelector} and ${toDateSelector}`, 'county-scraper');
+        await Logger.info(`Set dates: ${testDate} to ${testDate} using selectors ${fromDateSelector} and ${toDateSelector}`, 'county-scraper');
         
         // Try to click search using the existing search method
         const searchClicked = await this.clickSearchButton(page);
