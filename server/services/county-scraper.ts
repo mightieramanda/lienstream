@@ -179,10 +179,10 @@ export class PuppeteerCountyScraper extends CountyScraper {
       await Logger.info(`Starting lien scraping for ${this.county.name}`, 'county-scraper');
 
       // Search for 8/22/2025 as requested
-      // Search for liens from a recent date that has actual data
-      // Using December 2024 which should have medical liens
-      const startDate = new Date('2024-12-20');
-      const endDate = new Date('2024-12-20');
+      // Search for liens from January 2024 to ensure PDFs are available
+      // Using a week range to find more liens
+      const startDate = new Date('2024-01-08');
+      const endDate = new Date('2024-01-12');
       
       const startMonth = startDate.getMonth() + 1;
       const startDay = startDate.getDate();
