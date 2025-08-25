@@ -108,7 +108,7 @@ export class SchedulerService {
               status: 'completed',
               endTime: new Date(),
               liensFound: scrapedLiens.length,
-              liensProcessed: scrapedLiens.filter((l: any) => l.amount >= 20000).length
+              liensProcessed: scrapedLiens.length
             });
           } else {
             await storage.updateCountyRun(countyRunId, {
@@ -125,28 +125,25 @@ export class SchedulerService {
         }
       }
 
-      // Step 3: Get all scraped liens over $20,000 for Airtable sync
-      let allLiensOver20k: any[] = [];
+      // Step 3: Get all scraped liens for Airtable sync
+      let allLiens: any[] = [];
       for (const scraper of allScrapers) {
         if (scraper.liens && scraper.liens.length > 0) {
-          const liensOver20k = scraper.liens.filter((l: any) => l.amount >= 20000);
-          allLiensOver20k = allLiensOver20k.concat(liensOver20k);
+          allLiens = allLiens.concat(scraper.liens);
         }
       }
-      totalLiensProcessed = allLiensOver20k.length;
+      totalLiensProcessed = allLiens.length;
 
       // Step 4: Sync to Airtable
-      if (allLiensOver20k.length > 0) {
-        await Logger.info(`Syncing ${allLiensOver20k.length} liens to Airtable`, 'scheduler');
+      if (allLiens.length > 0) {
+        await Logger.info(`Syncing ${allLiens.length} liens to Airtable`, 'scheduler');
         
         // Transform liens to match Airtable service expectations
-        const liensForAirtable = allLiensOver20k.map(lien => ({
+        const liensForAirtable = allLiens.map((lien: any) => ({
           recordingNumber: lien.recordingNumber,
           recordingDate: lien.recordingDate,
-          amount: lien.amount.toString(),
-          debtorName: lien.debtorName,
-          creditorName: lien.creditorName,
-          countyId: this.isRunning ? '1' : '1', // Use default county ID for now
+          documentUrl: lien.documentUrl,
+          countyId: '1', // Use default county ID for now
           status: 'pending'
         }));
         
@@ -159,10 +156,10 @@ export class SchedulerService {
         endTime: new Date(),
         liensFound: totalLiensFound,
         liensProcessed: totalLiensProcessed,
-        liensOver20k: totalLiensProcessed
+        liensOver20k: 0 // Not tracking amounts anymore
       });
 
-      await Logger.success(`Automation completed successfully. Found ${totalLiensFound} liens across ${activeCounties.length} counties, processed ${totalLiensProcessed} over $20k`, 'scheduler');
+      await Logger.success(`Automation completed successfully. Found ${totalLiensFound} liens across ${activeCounties.length} counties, pushed ${totalLiensProcessed} to Airtable`, 'scheduler');
 
       // Cleanup all scrapers
       for (const scraper of allScrapers) {

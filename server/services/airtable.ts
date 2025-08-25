@@ -51,12 +51,9 @@ export class AirtableService {
             'Status': 'New',
             'County Name': countyName,
             'Document ID': lien.recordingNumber,
-            'Grantor/Grantee Names': lien.debtorName,
-            'Lien Amount': parseFloat(lien.amount),
             'Recorded Date/Time': lien.recordingDate ? new Date(lien.recordingDate).toISOString() : new Date().toISOString(),
-            'Address': lien.debtorAddress || 'Not Available',
             'PDF Link': lien.documentUrl || `https://legacy.recorder.maricopa.gov/UnOfficialDocs/pdf/${lien.recordingNumber}.pdf`,
-            'Creditor Name': lien.creditorName || ''
+            'Scrape Batch ID': batchId
           }
         };
       });

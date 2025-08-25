@@ -1,6 +1,6 @@
 import puppeteer, { Browser, Page } from 'puppeteer';
 import { Lien } from '../../shared/schema';
-import { OCRHelper } from './ocr-helper';
+// OCR no longer needed - just collecting PDF URLs
 // Type definitions
 interface County {
   id: string;
@@ -29,11 +29,6 @@ import { storage } from '../storage';
 interface ScrapedLien {
   recordingNumber: string;
   recordingDate: Date;
-  debtorName: string;
-  debtorAddress: string;
-  amount: number;
-  creditorName: string;
-  creditorAddress: string;
   documentUrl: string;
 }
 
@@ -54,11 +49,11 @@ export abstract class CountyScraper {
           recordingNumber: lien.recordingNumber,
           recordDate: lien.recordingDate,
           countyId: this.county.id,
-          debtorName: lien.debtorName,
-          debtorAddress: lien.debtorAddress,
-          amount: lien.amount.toString(),
-          creditorName: lien.creditorName,
-          creditorAddress: lien.creditorAddress,
+          debtorName: 'To be extracted',
+          debtorAddress: '',
+          amount: '0',
+          creditorName: 'Medical Provider',
+          creditorAddress: '',
           documentUrl: lien.documentUrl,
           status: 'pending',
           airtableRecordId: null,
@@ -80,162 +75,48 @@ export class PuppeteerCountyScraper extends CountyScraper {
   private browser: Browser | null = null;
   public liens: any[] = []; // Store liens for access by scheduler
 
-  async downloadAndParsePDF(pdfUrl: string, page?: Page): Promise<{ debtorName: string; debtorAddress: string; amount: number } | null> {
+  async validatePdfUrl(pdfUrl: string, page?: Page): Promise<boolean> {
     try {
-      await Logger.info(`📥 Attempting to download PDF from: ${pdfUrl}`, 'county-scraper');
+      await Logger.info(`📥 Validating PDF URL: ${pdfUrl}`, 'county-scraper');
       
-      let pdfBuffer: ArrayBuffer | null = null;
-      let lastError: Error | null = null;
-      const maxRetries = 3;
-      
-      // Try downloading with retries (sometimes PDFs need refresh to load)
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          if (attempt > 1) {
-            await Logger.info(`🔄 Retry attempt ${attempt}/${maxRetries} for PDF download`, 'county-scraper');
-            await new Promise(resolve => setTimeout(resolve, 2000 * attempt)); // Exponential backoff
+      // Quick validation with a HEAD request
+      try {
+        const response = await fetch(pdfUrl, {
+          method: 'HEAD',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36'
           }
-          
-          // Try to download through the browser session first (maintains cookies/auth)
-          if (page && attempt <= maxRetries) { // Keep trying browser method
-            try {
-              // Navigate to the PDF URL in the browser
-              const pdfResponse = await page.goto(pdfUrl, { 
-                waitUntil: 'networkidle2',
-                timeout: 20000 
-              });
-              
-              // Wait a bit and reload if needed
-              await new Promise(resolve => setTimeout(resolve, 1000));
-              
-              // Check if we got HTML instead of PDF
-              const pageContent = await page.evaluate(() => {
-                return {
-                  contentType: document.contentType,
-                  isHtml: document.documentElement?.tagName === 'HTML',
-                  bodyText: document.body ? document.body.innerText.substring(0, 50) : ''
-                };
-              });
-              
-              if (pageContent.isHtml || pageContent.bodyText.includes('DOCTYPE')) {
-                await Logger.info(`🔄 Got HTML page instead of PDF, refreshing...`, 'county-scraper');
-                await page.reload({ waitUntil: 'networkidle2' });
-                await new Promise(resolve => setTimeout(resolve, 2000));
-              }
-              
-              if (pdfResponse && pdfResponse.ok()) {
-                // Get the PDF buffer from the response
-                const buffer = await pdfResponse.buffer();
-                const bufferArray = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
-                
-                // Check if this is actually a PDF or HTML
-                const uint8Array = new Uint8Array(bufferArray);
-                const headerBytes = uint8Array.slice(0, 5);
-                const headerString = String.fromCharCode.apply(null, Array.from(headerBytes));
-                
-                // PDF files start with "%PDF-", HTML starts with "<!DOC" or "<html"
-                if (headerString.startsWith('%PDF')) {
-                  pdfBuffer = bufferArray;
-                  await Logger.info(`✅ Downloaded actual PDF through browser session on attempt ${attempt}`, 'county-scraper');
-                  break; // Success!
-                } else {
-                  await Logger.info(`⚠️ Downloaded content is HTML, not PDF (starts with: ${headerString})`, 'county-scraper');
-                  // Continue to next attempt
-                  if (attempt < maxRetries) {
-                    await page.reload({ waitUntil: 'networkidle2' });
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                  }
-                }
-              } else {
-                throw new Error(`Browser download failed: ${pdfResponse?.status()}`);
-              }
-            } catch (browserError) {
-              lastError = browserError as Error;
-              if (attempt === maxRetries) {
-                await Logger.info(`Browser download failed on final attempt: ${lastError.message}`, 'county-scraper');
-              }
-            }
-          }
-          
-          // Fall back to direct fetch
-          if (!pdfBuffer) {
-            const response = await fetch(pdfUrl, {
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
-                'Accept': 'application/pdf,*/*',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Connection': 'keep-alive',
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
-              }
+        });
+        
+        if (response.ok) {
+          await Logger.success(`✅ PDF URL is valid: ${pdfUrl}`, 'county-scraper');
+          return true;
+        } else {
+          await Logger.info(`❌ PDF URL returned status ${response.status}`, 'county-scraper');
+          return false;
+        }
+      } catch (error) {
+        // If HEAD request fails, try navigating with browser
+        if (page) {
+          try {
+            const navResponse = await page.goto(pdfUrl, { 
+              waitUntil: 'domcontentloaded',
+              timeout: 10000 
             });
             
-            if (response.ok && response.headers.get('content-type')?.includes('pdf')) {
-              pdfBuffer = await response.arrayBuffer();
-              await Logger.info(`✅ Downloaded PDF through direct fetch on attempt ${attempt} (${pdfBuffer.byteLength} bytes)`, 'county-scraper');
-              break; // Success!
-            } else {
-              throw new Error(`Direct download failed: ${response.status}, Content-Type: ${response.headers.get('content-type')}`);
+            if (navResponse && navResponse.ok()) {
+              await Logger.success(`✅ PDF URL is accessible via browser: ${pdfUrl}`, 'county-scraper');
+              return true;
             }
-          }
-        } catch (error) {
-          lastError = error as Error;
-          if (attempt === maxRetries) {
-            await Logger.error(`Failed to download PDF after ${maxRetries} attempts: ${lastError.message}`, 'county-scraper');
-            throw lastError;
+          } catch (navError) {
+            await Logger.info(`❌ PDF URL not accessible: ${navError}`, 'county-scraper');
           }
         }
+        return false;
       }
-      
-      if (!pdfBuffer) {
-        throw new Error('Failed to download PDF after all retry attempts');
-      }
-      
-      // Use OCR helper to extract text (handles both text PDFs and scanned images)
-      const text = await OCRHelper.extractTextFromPDF(pdfBuffer);
-      
-      if (!text || text.length === 0) {
-        await Logger.info(`No text extracted from PDF`, 'county-scraper');
-        return {
-          debtorName: 'Unknown',
-          debtorAddress: 'Not Available',
-          amount: 0
-        };
-      }
-      
-      await Logger.info(`📄 Extracted ${text.length} characters from PDF`, 'county-scraper');
-      
-      // Parse the extracted text for lien information
-      const lienInfo = OCRHelper.parseTextForLienInfo(text);
-      
-      // Log what we extracted
-      await Logger.info(`📋 OCR parsed - Name: ${lienInfo.debtorName}, Amount: $${lienInfo.amount.toLocaleString()}, Address: ${lienInfo.debtorAddress}`, 'county-scraper');
-      
-      // Accept liens with ANY valid amount (even if other fields are missing)
-      // Medical liens are often filed with minimal information
-      if (lienInfo.amount > 0) {
-        await Logger.success(`✅ Found lien with amount: $${lienInfo.amount.toLocaleString()}`, 'county-scraper');
-      } else {
-        // If no amount found, try to find any dollar amount in the text
-        const amountMatch = text.match(/\$\s*([\d,]+(?:\.\d{2})?)/);
-        if (amountMatch) {
-          lienInfo.amount = parseFloat(amountMatch[1].replace(/,/g, ''));
-          await Logger.info(`💰 Found amount in text: $${lienInfo.amount.toLocaleString()}`, 'county-scraper');
-        } else {
-          await Logger.info(`⏭️ No lien amount found, skipping`, 'county-scraper');
-          return null;
-        }
-      }
-      
-      return lienInfo;
     } catch (error) {
-      await Logger.error(`Failed to parse PDF with OCR: ${error}`, 'county-scraper');
-      
-      // Skip PDFs that can't be downloaded or parsed (404 errors, etc.)
-      await Logger.info(`⏭️ Skipping lien due to PDF download/parse error`, 'county-scraper');
-      
-      return null;
+      await Logger.error(`Failed to validate PDF URL: ${error}`, 'county-scraper');
+      return false;
     }
   }
 
@@ -579,7 +460,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
             return null;
           });
           
-          let actualPdfUrl: string;
+          let actualPdfUrl: string = '';
           
           if (pdfPageLink) {
             await Logger.info(`📎 Found Pages column link: ${pdfPageLink}`, 'county-scraper');
@@ -696,39 +577,20 @@ export class PuppeteerCountyScraper extends CountyScraper {
           // Log the detail page for reference
           await Logger.info(`📄 Document ${recordingNumber}: Detail page: ${docUrl}`, 'county-scraper');
           
-          // Download and parse the PDF with OCR if needed, using the browser session
-          const extractedData = await this.downloadAndParsePDF(actualPdfUrl, page);
+          // Validate PDF URL is accessible
+          const isValidPdf = await this.validatePdfUrl(actualPdfUrl, page);
           
-          // Skip if PDF couldn't be downloaded or parsed (returns null)
-          if (!extractedData) {
-            await Logger.info(`⏭️ Skipping ${recordingNumber} - PDF not accessible`, 'county-scraper');
-            continue;
-          }
-          
-          // Log the extraction results
-          if (extractedData.amount > 0) {
-            await Logger.info(`📊 Extracted from PDF ${recordingNumber}: Amount: $${extractedData.amount.toLocaleString()}`, 'county-scraper');
-          } else {
-            await Logger.info(`📊 No amount found in PDF ${recordingNumber}`, 'county-scraper');
-          }
-          
-          // Only process if the amount is over $20,000
-          if (extractedData.amount >= 20000) {
+          if (isValidPdf) {
             const lienInfo = {
               recordingNumber,
               recordingDate: lienData.recordingDate ? new Date(lienData.recordingDate) : new Date(),
-              debtorName: extractedData.debtorName,
-              debtorAddress: extractedData.debtorAddress,
-              amount: extractedData.amount,
-              creditorName: lienData.grantee || 'Medical Provider',
-              creditorAddress: '',
-              documentUrl: actualPdfUrl // Use the actual PDF URL if found
+              documentUrl: actualPdfUrl // Just store the PDF URL
             };
             
             liens.push(lienInfo);
-            await Logger.success(`💰 Found medical lien over $20,000: ${recordingNumber} - Amount: $${extractedData.amount.toLocaleString()}`, 'county-scraper');
+            await Logger.success(`✅ Found lien ${recordingNumber} with PDF URL: ${actualPdfUrl}`, 'county-scraper');
           } else {
-            await Logger.info(`Medical lien ${recordingNumber} amount ($${extractedData.amount.toLocaleString()}) is under $20,000 threshold`, 'county-scraper');
+            await Logger.info(`⏭️ Skipping ${recordingNumber} - PDF not accessible`, 'county-scraper');
           }
         } catch (error) {
           await Logger.error(`Failed to process recording ${recordingNumber}: ${error}`, 'county-scraper');
@@ -738,7 +600,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
 
-      await Logger.success(`🎯 Found ${liens.length} liens over $20,000 in ${this.county.name}`, 'county-scraper');
+      await Logger.success(`🎯 Found ${liens.length} liens with valid PDFs in ${this.county.name}`, 'county-scraper');
       
       // Store liens for access by scheduler
       this.liens = liens;
@@ -755,43 +617,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
     return liens;
   }
 
-  private parseLienInfo(text: string, recordingNumber: string, pdfUrl: string): ScrapedLien | null {
-    try {
-      // Extract amount (look for dollar amounts)
-      const amountMatch = text.match(/\$[\d,]+\.?\d*/);
-      const amount = amountMatch ? parseFloat(amountMatch[0].replace(/[$,]/g, '')) : 0;
-      
-      // Extract debtor name (usually after "Debtor:" or similar)
-      const debtorMatch = text.match(/(?:Debtor|Patient|Name)[:\s]+([^\n]+)/i);
-      const debtorName = debtorMatch ? debtorMatch[1].trim() : 'Unknown';
-      
-      // Extract debtor address
-      const addressMatch = text.match(/(?:Address|Addr)[:\s]+([^\n]+(?:\n[^\n]+)?)/i);
-      const debtorAddress = addressMatch ? addressMatch[1].trim().replace(/\n/g, ', ') : 'Unknown';
-      
-      // Extract creditor information (hospital/medical facility)
-      const creditorMatch = text.match(/(?:Creditor|Hospital|Medical|Facility)[:\s]+([^\n]+)/i);
-      const creditorName = creditorMatch ? creditorMatch[1].trim() : 'Medical Facility';
-      
-      // Extract recording date
-      const dateMatch = text.match(/(?:Recording Date|Date Recorded|Date)[:\s]+(\d{1,2}\/\d{1,2}\/\d{4})/i);
-      const recordingDate = dateMatch ? new Date(dateMatch[1]) : new Date();
-      
-      return {
-        recordingNumber,
-        recordingDate,
-        debtorName,
-        debtorAddress,
-        amount,
-        creditorName,
-        creditorAddress: 'See Document', // Will be in the PDF
-        documentUrl: pdfUrl
-      };
-    } catch (error) {
-      Logger.error(`Failed to parse lien info from PDF text: ${error}`, 'county-scraper');
-      return null;
-    }
-  }
+  // parseLienInfo method removed - no longer extracting data from PDFs
 
   async saveLiens(liens: ScrapedLien[]): Promise<void> {
     try {
@@ -804,12 +630,12 @@ export class PuppeteerCountyScraper extends CountyScraper {
           recordingNumber: lien.recordingNumber,
           recordDate: lien.recordingDate,
           countyId: this.county.id,
-          debtorName: lien.debtorName,
-          debtorAddress: lien.debtorAddress,
-          amount: lien.amount.toString(),
-          creditorName: lien.creditorName,
-          creditorAddress: lien.creditorAddress,
-          documentUrl: lien.documentUrl, // This now has the correct PDF URL
+          debtorName: 'To be extracted',
+          debtorAddress: '',
+          amount: '0',
+          creditorName: 'Medical Provider',
+          creditorAddress: '',
+          documentUrl: lien.documentUrl, // This has the PDF URL
           status: 'pending'
         });
       }
