@@ -73,9 +73,9 @@ export class SchedulerService {
 
           // Create appropriate scraper for this county
           const countyConfig = {
-            url: (county.config as any).baseUrl || '',
-            searchUrl: (county.config as any).searchUrl || '',
-            selectors: (county.config as any).selectors || {}
+            url: county.websiteUrl || 'https://legacy.recorder.maricopa.gov',
+            searchUrl: 'https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataRecentPgDn.aspx',
+            selectors: {}
           };
           
           // Convert county to expected format for scraper
@@ -83,10 +83,10 @@ export class SchedulerService {
             id: county.id,
             name: county.name,
             state: county.state,
-            website: (county.config as any).baseUrl || '',
+            website: county.websiteUrl || 'https://legacy.recorder.maricopa.gov',
             scraperEnabled: county.isActive,
-            searchUrl: (county.config as any).searchUrl || '',
-            selectors: (county.config as any).selectors || {}
+            searchUrl: 'https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataRecentPgDn.aspx',
+            selectors: {}
           };
           
           const scraper = createCountyScraper(scrapingCounty, countyConfig) as PuppeteerCountyScraper;

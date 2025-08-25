@@ -495,7 +495,6 @@ export class PuppeteerCountyScraper extends CountyScraper {
             let contentType = pdfResponse?.headers()['content-type'] || '';
             let reloadAttempts = 0;
             const maxReloads = 5;
-            let actualPdfUrl = '';
             
             // Keep reloading until we get a PDF or hit max attempts
             while (!contentType.includes('pdf') && reloadAttempts < maxReloads) {
