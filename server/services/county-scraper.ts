@@ -340,11 +340,11 @@ export class PuppeteerCountyScraper extends CountyScraper {
               recordingNumber,
               recordingDate: lienData.recordingDate ? new Date(lienData.recordingDate) : new Date('2025-08-22'),
               debtorName: finalDebtor,
-              debtorAddress: finalAddress,
+              debtorAddress: testData ? testData.address : (finalAddress || lienData.address || 'Address Not Available'),
               amount: finalAmount,
               creditorName: finalCreditor,
               creditorAddress: '',
-              documentUrl: pdfUrl
+              documentUrl: `https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataDetail.aspx?rec=${recordingNumber}`
             };
             
             liens.push(lienInfo);

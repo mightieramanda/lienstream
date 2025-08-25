@@ -54,8 +54,8 @@ export class AirtableService {
             'Grantor/Grantee Names': lien.debtorName,
             'Lien Amount': parseFloat(lien.amount),
             'Recorded Date/Time': lien.recordingDate ? new Date(lien.recordingDate).toISOString() : new Date().toISOString(),
-            'Address': lien.debtorAddress || '',
-            'PDF Link': lien.documentUrl || '',
+            'Address': lien.debtorAddress || 'Not Available',
+            'PDF Link': `https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataDetail.aspx?rec=${lien.recordingNumber}`,
             'Creditor Name': lien.creditorName || ''
           }
         };
