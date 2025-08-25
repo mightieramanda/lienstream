@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { AirtableService } from './airtable';
 import { Logger } from './logger';
-import { CountyScraperFactory } from './county-scraper';
+import { createCountyScraper, PuppeteerCountyScraper } from './county-scraper';
 import { storage } from '../storage';
 
 export class SchedulerService {
@@ -72,13 +72,17 @@ export class SchedulerService {
           });
 
           // Create appropriate scraper for this county
-          const scraper = CountyScraperFactory.createScraper(county);
+          const countyConfig = {
+            url: county.website,
+            searchUrl: county.searchUrl,
+            selectors: county.selectors || {}
+          };
+          const scraper = createCountyScraper(county, countyConfig) as PuppeteerCountyScraper;
           allScrapers.push(scraper);
 
-          const scrapedLiens = await scraper.scrapeCountyLiens();
+          const scrapedLiens = await scraper.scrapeLiens();
           
           if (scrapedLiens.length > 0) {
-            await scraper.saveLiens(scrapedLiens);
             totalLiensFound += scrapedLiens.length;
             
             // Update county run
@@ -86,7 +90,7 @@ export class SchedulerService {
               status: 'completed',
               endTime: new Date(),
               liensFound: scrapedLiens.length,
-              liensProcessed: scrapedLiens.filter(l => l.amount >= 20000).length
+              liensProcessed: scrapedLiens.filter(l => parseFloat(l.amount) >= 20000).length
             });
           } else {
             await storage.updateCountyRun(countyRunId, {
