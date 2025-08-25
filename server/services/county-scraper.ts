@@ -93,7 +93,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
           }
           
           // Try to download through the browser session first (maintains cookies/auth)
-          if (page && attempt <= 2) { // Try browser method for first 2 attempts
+          if (page && attempt <= maxRetries) { // Keep trying browser method
             try {
               // Navigate to the PDF URL in the browser
               const pdfResponse = await page.goto(pdfUrl, { 
@@ -101,19 +101,54 @@ export class PuppeteerCountyScraper extends CountyScraper {
                 timeout: 20000 
               });
               
+              // Wait a bit and reload if needed
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              
+              // Check if we got HTML instead of PDF
+              const pageContent = await page.evaluate(() => {
+                return {
+                  contentType: document.contentType,
+                  isHtml: document.documentElement?.tagName === 'HTML',
+                  bodyText: document.body ? document.body.innerText.substring(0, 50) : ''
+                };
+              });
+              
+              if (pageContent.isHtml || pageContent.bodyText.includes('DOCTYPE')) {
+                await Logger.info(`🔄 Got HTML page instead of PDF, refreshing...`, 'county-scraper');
+                await page.reload({ waitUntil: 'networkidle2' });
+                await new Promise(resolve => setTimeout(resolve, 2000));
+              }
+              
               if (pdfResponse && pdfResponse.ok()) {
                 // Get the PDF buffer from the response
                 const buffer = await pdfResponse.buffer();
-                pdfBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
-                await Logger.info(`✅ Downloaded PDF through browser session on attempt ${attempt}`, 'county-scraper');
-                break; // Success!
+                const bufferArray = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+                
+                // Check if this is actually a PDF or HTML
+                const uint8Array = new Uint8Array(bufferArray);
+                const headerBytes = uint8Array.slice(0, 5);
+                const headerString = String.fromCharCode(...headerBytes);
+                
+                // PDF files start with "%PDF-", HTML starts with "<!DOC" or "<html"
+                if (headerString.startsWith('%PDF')) {
+                  pdfBuffer = bufferArray;
+                  await Logger.info(`✅ Downloaded actual PDF through browser session on attempt ${attempt}`, 'county-scraper');
+                  break; // Success!
+                } else {
+                  await Logger.info(`⚠️ Downloaded content is HTML, not PDF (starts with: ${headerString})`, 'county-scraper');
+                  // Continue to next attempt
+                  if (attempt < maxRetries) {
+                    await page.reload({ waitUntil: 'networkidle2' });
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                  }
+                }
               } else {
                 throw new Error(`Browser download failed: ${pdfResponse?.status()}`);
               }
             } catch (browserError) {
               lastError = browserError as Error;
               if (attempt === maxRetries) {
-                await Logger.info(`Browser download failed on final attempt, trying direct fetch`, 'county-scraper');
+                await Logger.info(`Browser download failed on final attempt: ${lastError.message}`, 'county-scraper');
               }
             }
           }
@@ -170,13 +205,23 @@ export class PuppeteerCountyScraper extends CountyScraper {
       // Parse the extracted text for lien information
       const lienInfo = OCRHelper.parseTextForLienInfo(text);
       
-      // If OCR didn't extract meaningful data, use realistic demo data
-      // In production with proper OCR setup, this wouldn't be needed
-      if (lienInfo.amount === 0 || lienInfo.debtorName === 'Unknown') {
-        await Logger.info(`⏭️ OCR extraction incomplete, skipping this lien`, 'county-scraper');
-        return null;
+      // Log what we extracted
+      await Logger.info(`📋 OCR parsed - Name: ${lienInfo.debtorName}, Amount: $${lienInfo.amount.toLocaleString()}, Address: ${lienInfo.debtorAddress}`, 'county-scraper');
+      
+      // Accept liens with ANY valid amount (even if other fields are missing)
+      // Medical liens are often filed with minimal information
+      if (lienInfo.amount > 0) {
+        await Logger.success(`✅ Found lien with amount: $${lienInfo.amount.toLocaleString()}`, 'county-scraper');
       } else {
-        await Logger.success(`📋 OCR extracted - Name: ${lienInfo.debtorName}, Amount: $${lienInfo.amount.toLocaleString()}`, 'county-scraper');
+        // If no amount found, try to find any dollar amount in the text
+        const amountMatch = text.match(/\$\s*([\d,]+(?:\.\d{2})?)/);
+        if (amountMatch) {
+          lienInfo.amount = parseFloat(amountMatch[1].replace(/,/g, ''));
+          await Logger.info(`💰 Found amount in text: $${lienInfo.amount.toLocaleString()}`, 'county-scraper');
+        } else {
+          await Logger.info(`⏭️ No lien amount found, skipping`, 'county-scraper');
+          return null;
+        }
       }
       
       return lienInfo;
@@ -546,25 +591,50 @@ export class PuppeteerCountyScraper extends CountyScraper {
             
             // Check if we need to reload (sometimes PDFs need a refresh to load)
             let contentType = pdfResponse?.headers()['content-type'] || '';
+            let reloadAttempts = 0;
+            const maxReloads = 5;
             
-            // If we got HTML instead of PDF, try reloading once
-            if (!contentType.includes('pdf') && contentType.includes('html')) {
-              await Logger.info(`🔄 Got HTML response, reloading to get PDF...`, 'county-scraper');
-              await page.reload({ waitUntil: 'networkidle2', timeout: 15000 });
-              await new Promise(resolve => setTimeout(resolve, 2000));
+            // Keep reloading until we get a PDF or hit max attempts
+            while (!contentType.includes('pdf') && reloadAttempts < maxReloads) {
+              reloadAttempts++;
+              await Logger.info(`🔄 Attempt ${reloadAttempts}/${maxReloads}: Got ${contentType || 'unknown'} response, refreshing to get PDF...`, 'county-scraper');
               
-              // Check content type again after reload
-              const currentResponse = await page.evaluate(() => {
-                return {
-                  url: window.location.href,
-                  contentType: document.contentType
-                };
-              });
+              // Wait before reload (exponential backoff)
+              await new Promise(resolve => setTimeout(resolve, 1000 * reloadAttempts));
               
-              if (currentResponse.url.includes('.pdf')) {
-                actualPdfUrl = currentResponse.url;
-                await Logger.info(`📄 Successfully loaded PDF after reload: ${actualPdfUrl}`, 'county-scraper');
+              // Reload the page
+              const reloadResponse = await page.reload({ waitUntil: 'networkidle2', timeout: 15000 });
+              
+              // Check if we have a PDF now
+              contentType = reloadResponse?.headers()['content-type'] || '';
+              
+              // Also check if the URL indicates a PDF
+              const currentUrl = page.url();
+              if (currentUrl.includes('.pdf')) {
+                // Try to get the actual response
+                const pageContent = await page.evaluate(() => {
+                  // Check if this is actually a PDF by looking at the document
+                  const isPdf = document.contentType === 'application/pdf' || 
+                                window.location.href.includes('.pdf');
+                  return {
+                    url: window.location.href,
+                    isPdf: isPdf,
+                    contentType: document.contentType,
+                    bodyText: document.body ? document.body.innerText.substring(0, 100) : ''
+                  };
+                });
+                
+                if (pageContent.isPdf || !pageContent.bodyText.includes('<!DOCTYPE')) {
+                  actualPdfUrl = currentUrl;
+                  await Logger.info(`✅ Successfully loaded PDF after ${reloadAttempts} reload(s): ${actualPdfUrl}`, 'county-scraper');
+                  contentType = 'application/pdf'; // Force it to be treated as PDF
+                  break;
+                }
               }
+            }
+            
+            if (reloadAttempts >= maxReloads) {
+              await Logger.info(`❌ Failed to load PDF after ${maxReloads} refresh attempts`, 'county-scraper');
             }
             
             if (contentType.includes('pdf') || (actualPdfUrl && actualPdfUrl.includes('.pdf'))) {
