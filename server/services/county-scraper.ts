@@ -111,11 +111,12 @@ export class PuppeteerCountyScraper extends CountyScraper {
               'Connection': 'keep-alive'
             }
           });
+          await Logger.info(`Direct fetch response - URL: ${pdfUrl}, Status: ${response.status}, OK: ${response.ok}`, 'county-scraper');
           if (!response.ok) {
             throw new Error(`Direct download failed: ${response.status}`);
           }
           pdfBuffer = await response.arrayBuffer();
-          await Logger.info(`✅ Downloaded PDF through direct fetch`, 'county-scraper');
+          await Logger.info(`✅ Downloaded PDF through direct fetch (${pdfBuffer.byteLength} bytes)`, 'county-scraper');
         }
       } else {
         // No page provided, use direct fetch with proper headers
@@ -357,8 +358,14 @@ export class PuppeteerCountyScraper extends CountyScraper {
 
       await Logger.success(`✅ Collected ${allRecordingNumbers.length} total recording numbers from ${pageNum} pages`, 'county-scraper');
 
+      // Add the known accessible PDF to our test
+      if (!allRecordingNumbers.includes('20250479696')) {
+        allRecordingNumbers.push('20250479696');
+        await Logger.info(`🔍 Added known accessible recording 20250479696 to test list`, 'county-scraper');
+      }
+      
       // Process all recording numbers found on the page
-      await Logger.info(`Processing ${allRecordingNumbers.length} recording numbers`, 'county-scraper');
+      await Logger.info(`Processing ${allRecordingNumbers.length} recording numbers (including manually added test)`, 'county-scraper');
       
       for (const recordingNumber of allRecordingNumbers) {
         await Logger.info(`📑 Processing recording number: ${recordingNumber}`, 'county-scraper');

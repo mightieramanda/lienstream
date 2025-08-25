@@ -126,6 +126,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test route to directly process a specific recording
+  app.post("/api/test-recording", async (req, res) => {
+    try {
+      const { recordingNumber = '20250479696' } = req.body;
+      
+      const pdfUrl = `https://legacy.recorder.maricopa.gov/UnOfficialDocs/pdf/${recordingNumber}.pdf`;
+      await Logger.info(`Testing direct PDF download for recording ${recordingNumber}`, 'test');
+      
+      // Download the PDF
+      const response = await fetch(pdfUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+          'Accept': 'application/pdf,*/*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Connection': 'keep-alive'
+        }
+      });
+      
+      await Logger.info(`PDF fetch response: Status ${response.status}, OK: ${response.ok}`, 'test');
+      
+      if (!response.ok) {
+        return res.json({ 
+          success: false, 
+          recordingNumber,
+          status: response.status,
+          error: `PDF not accessible (${response.status})`
+        });
+      }
+      
+      const pdfBuffer = Buffer.from(await response.arrayBuffer());
+      await Logger.info(`Downloaded PDF: ${pdfBuffer.length} bytes`, 'test');
+      
+      // Parse with OCR
+      const { OCRHelper } = await import('./services/ocr-helper');
+      const extractedText = await OCRHelper.extractTextFromPDF(pdfBuffer);
+      const ocrData = OCRHelper.parseTextForLienInfo(extractedText);
+      await Logger.info(`OCR extraction complete: Found debtor: ${ocrData.debtorName}, Amount: ${ocrData.amount}`, 'test');
+      
+      // Create lien if data was extracted
+      if (ocrData.debtorName && ocrData.debtorName !== 'Unknown' && ocrData.amount > 20000) {
+        const lien = {
+          recordingNumber,
+          recordingDate: new Date().toISOString(),
+          county: 'Maricopa County',
+          state: 'Arizona',
+          debtorName: ocrData.debtorName,
+          debtorAddress: ocrData.debtorAddress || '',
+          creditorName: '',
+          amount: ocrData.amount,
+          documentType: 'MEDICAL LIEN',
+          pdfUrl,
+          ocrConfidence: 0.9,
+          isEnriched: false,
+          isAirtableSynced: false
+        };
+        
+        await storage.createLien(lien);
+        await Logger.success(`✅ Successfully processed and saved lien ${recordingNumber}`, 'test');
+        
+        return res.json({
+          success: true,
+          recordingNumber,
+          lien,
+          message: 'Successfully processed PDF and extracted lien data'
+        });
+      }
+      
+      return res.json({
+        success: true,
+        recordingNumber,
+        pdfDownloaded: true,
+        ocrData: {
+          debtorName: ocrData.debtorName,
+          debtorAddress: ocrData.debtorAddress,
+          amount: ocrData.amount
+        },
+        message: ocrData.amount <= 20000 ? 'Amount below $20,000 threshold' : 'OCR data incomplete'
+      });
+      
+    } catch (error) {
+      await Logger.error(`Test recording failed: ${error}`, 'test');
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
