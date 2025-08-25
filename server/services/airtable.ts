@@ -71,11 +71,15 @@ export class AirtableService {
           }];
         }
         
+        // Convert recording number to number
+        const recordNumber = parseInt(lien.recordingNumber, 10);
+        Logger.info(`Converting recording number: "${lien.recordingNumber}" to ${recordNumber} (type: ${typeof recordNumber}, value check: ${!isNaN(recordNumber)})`, 'airtable');
+        
         return {
           fields: {
             'Status': 'New',
             'County Name': countyName,
-            'Record Number': lien.recordingNumber,
+            'Record Number': recordNumber, // Convert to number for Airtable number field
             'Recorded Date/Time': lien.recordingDate ? new Date(lien.recordingDate).toISOString() : new Date().toISOString(),
             'PDF Link': pdfAttachment, // Now an attachment field
             'Scrape Batch ID': batchId
