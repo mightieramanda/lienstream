@@ -73,11 +73,23 @@ export class SchedulerService {
 
           // Create appropriate scraper for this county
           const countyConfig = {
-            url: county.website,
-            searchUrl: county.searchUrl,
-            selectors: county.selectors || {}
+            url: (county.config as any).baseUrl || '',
+            searchUrl: (county.config as any).searchUrl || '',
+            selectors: (county.config as any).selectors || {}
           };
-          const scraper = createCountyScraper(county, countyConfig) as PuppeteerCountyScraper;
+          
+          // Convert county to expected format for scraper
+          const scrapingCounty = {
+            id: county.id,
+            name: county.name,
+            state: county.state,
+            website: (county.config as any).baseUrl || '',
+            scraperEnabled: county.isActive,
+            searchUrl: (county.config as any).searchUrl || '',
+            selectors: (county.config as any).selectors || {}
+          };
+          
+          const scraper = createCountyScraper(scrapingCounty, countyConfig) as PuppeteerCountyScraper;
           allScrapers.push(scraper);
           
           // Initialize the scraper
@@ -96,7 +108,7 @@ export class SchedulerService {
               status: 'completed',
               endTime: new Date(),
               liensFound: scrapedLiens.length,
-              liensProcessed: scrapedLiens.filter(l => l.amount >= 20000).length
+              liensProcessed: scrapedLiens.filter((l: any) => l.amount >= 20000).length
             });
           } else {
             await storage.updateCountyRun(countyRunId, {
@@ -117,7 +129,7 @@ export class SchedulerService {
       let allLiensOver20k: any[] = [];
       for (const scraper of allScrapers) {
         if (scraper.liens && scraper.liens.length > 0) {
-          const liensOver20k = scraper.liens.filter(l => l.amount >= 20000);
+          const liensOver20k = scraper.liens.filter((l: any) => l.amount >= 20000);
           allLiensOver20k = allLiensOver20k.concat(liensOver20k);
         }
       }

@@ -40,7 +40,7 @@ interface ScrapedLien {
 export abstract class CountyScraper {
   constructor(protected county: County, protected config: CountyConfig) {}
 
-  abstract scrapeCountyLiens(startDate?: Date, endDate?: Date): Promise<ScrapedLien[]>;
+  abstract scrapeCountyLiens(searchDate?: string): Promise<ScrapedLien[]>;
 
   async scrapeLiens(): Promise<Lien[]> {
     const scrapedLiens = await this.scrapeCountyLiens();
@@ -60,7 +60,11 @@ export abstract class CountyScraper {
           creditorName: lien.creditorName,
           creditorAddress: lien.creditorAddress,
           documentUrl: lien.documentUrl,
-          status: 'pending'
+          status: 'pending',
+          airtableRecordId: null,
+          enrichmentData: null,
+          createdAt: new Date(),
+          updatedAt: new Date()
         });
       }
       await Logger.success(`Saved ${liens.length} liens from ${this.county.name}`, 'county-scraper');
@@ -127,7 +131,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
                 // Check if this is actually a PDF or HTML
                 const uint8Array = new Uint8Array(bufferArray);
                 const headerBytes = uint8Array.slice(0, 5);
-                const headerString = String.fromCharCode(...headerBytes);
+                const headerString = String.fromCharCode.apply(null, Array.from(headerBytes));
                 
                 // PDF files start with "%PDF-", HTML starts with "<!DOC" or "<html"
                 if (headerString.startsWith('%PDF')) {
@@ -514,11 +518,11 @@ export class PuppeteerCountyScraper extends CountyScraper {
             // Find the table with document information
             const tables = document.querySelectorAll('table');
             
-            for (const table of tables) {
+            for (const table of Array.from(tables)) {
               const rows = table.querySelectorAll('tr');
               
               // Look for a row with "Pages" header or cell
-              for (const row of rows) {
+              for (const row of Array.from(rows)) {
                 const cells = row.querySelectorAll('td, th');
                 
                 for (let i = 0; i < cells.length; i++) {
@@ -553,7 +557,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
               
               // Alternative: Look for any numeric link in a table cell (likely the pages link)
               const allLinks = table.querySelectorAll('a');
-              for (const link of allLinks) {
+              for (const link of Array.from(allLinks)) {
                 const href = link.getAttribute('href');
                 const text = link.textContent?.trim() || '';
                 
@@ -593,6 +597,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
             let contentType = pdfResponse?.headers()['content-type'] || '';
             let reloadAttempts = 0;
             const maxReloads = 5;
+            let actualPdfUrl = '';
             
             // Keep reloading until we get a PDF or hit max attempts
             while (!contentType.includes('pdf') && reloadAttempts < maxReloads) {
@@ -637,11 +642,9 @@ export class PuppeteerCountyScraper extends CountyScraper {
               await Logger.info(`❌ Failed to load PDF after ${maxReloads} refresh attempts`, 'county-scraper');
             }
             
-            if (contentType.includes('pdf') || (actualPdfUrl && actualPdfUrl.includes('.pdf'))) {
+            if (contentType.includes('pdf') || page.url().includes('.pdf')) {
               // Direct PDF response
-              if (!actualPdfUrl) {
-                actualPdfUrl = page.url();
-              }
+              actualPdfUrl = page.url();
               await Logger.info(`📄 Navigated directly to PDF: ${actualPdfUrl}`, 'county-scraper');
             } else {
               // Might be a viewer page, look for the actual PDF URL
@@ -665,7 +668,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
                 
                 // Look for any PDF links on the page
                 const links = document.querySelectorAll('a');
-                for (const link of links) {
+                for (const link of Array.from(links)) {
                   const href = link.getAttribute('href');
                   if (href && href.includes('.pdf')) {
                     return href.startsWith('http') ? href : `https://legacy.recorder.maricopa.gov${href}`;
