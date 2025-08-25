@@ -386,8 +386,11 @@ export class PuppeteerCountyScraper extends CountyScraper {
 
       await Logger.success(`✅ Collected ${allRecordingNumbers.length} total recording numbers from ${pageNum} pages`, 'county-scraper');
 
-      // Process actual recording numbers found on the page
-      for (const recordingNumber of allRecordingNumbers) {
+      // Process actual recording numbers found on the page (limit to 10 for testing)
+      const limitedRecordingNumbers = allRecordingNumbers.slice(0, 10);
+      await Logger.info(`Processing ${limitedRecordingNumbers.length} of ${allRecordingNumbers.length} total recording numbers`, 'county-scraper');
+      
+      for (const recordingNumber of limitedRecordingNumbers) {
         await Logger.info(`📑 Processing recording number: ${recordingNumber}`, 'county-scraper');
         
         try {
