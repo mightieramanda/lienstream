@@ -75,7 +75,7 @@ export class AirtableService {
           fields: {
             'Status': 'New',
             'County Name': countyName,
-            'Document ID': lien.recordingNumber,
+            'Record Number': lien.recordingNumber,
             'Recorded Date/Time': lien.recordingDate ? new Date(lien.recordingDate).toISOString() : new Date().toISOString(),
             'PDF Link': pdfAttachment, // Now an attachment field
             'Scrape Batch ID': batchId
