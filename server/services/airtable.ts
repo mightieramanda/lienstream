@@ -1,6 +1,7 @@
 import { Logger } from './logger';
 import { Lien } from '@shared/schema';
 import { storage } from '../storage';
+import { pdfStorage } from './pdf-storage';
 
 interface AirtableRecord {
   fields: {
@@ -41,10 +42,34 @@ export class AirtableService {
       // Generate batch ID for this scrape session
       const batchId = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
       
+      // Get base URL for serving PDFs
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN ? 
+        `https://${process.env.REPLIT_DEV_DOMAIN}` : 
+        'http://localhost:5000';
+      
       const records: AirtableRecord[] = liens.map((lien) => {
         // Get county name from lien or default
         const countyName = 'Maricopa County';
         const stateName = 'Arizona';
+        
+        // If we have a PDF buffer, store it and get the serving URL
+        let pdfAttachment;
+        if (lien.pdfBuffer) {
+          const pdfId = pdfStorage.storePdf(lien.pdfBuffer, lien.recordingNumber);
+          const pdfUrl = `${baseUrl}/api/pdf/${pdfId}`;
+          pdfAttachment = [{
+            url: pdfUrl,
+            filename: `${lien.recordingNumber}.pdf`
+          }];
+          Logger.info(`Stored PDF for ${lien.recordingNumber} at ${pdfUrl}`, 'airtable');
+        } else {
+          // Fallback to original URL if no buffer
+          const originalUrl = lien.documentUrl || `https://legacy.recorder.maricopa.gov/UnOfficialDocs/pdf/${lien.recordingNumber}.pdf`;
+          pdfAttachment = [{
+            url: originalUrl,
+            filename: `${lien.recordingNumber}.pdf`
+          }];
+        }
         
         return {
           fields: {
@@ -52,7 +77,7 @@ export class AirtableService {
             'County Name': countyName,
             'Document ID': lien.recordingNumber,
             'Recorded Date/Time': lien.recordingDate ? new Date(lien.recordingDate).toISOString() : new Date().toISOString(),
-            'PDF Link': lien.documentUrl || `https://legacy.recorder.maricopa.gov/UnOfficialDocs/pdf/${lien.recordingNumber}.pdf`,
+            'PDF Link': pdfAttachment, // Now an attachment field
             'Scrape Batch ID': batchId
           }
         };

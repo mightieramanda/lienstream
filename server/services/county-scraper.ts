@@ -30,6 +30,7 @@ interface ScrapedLien {
   recordingNumber: string;
   recordingDate: Date;
   documentUrl: string;
+  pdfBuffer?: Buffer;
 }
 
 export abstract class CountyScraper {
@@ -75,48 +76,64 @@ export class PuppeteerCountyScraper extends CountyScraper {
   private browser: Browser | null = null;
   public liens: any[] = []; // Store liens for access by scheduler
 
-  async validatePdfUrl(pdfUrl: string, page?: Page): Promise<boolean> {
+  async downloadPdf(pdfUrl: string, recordingNumber: string, page?: Page): Promise<Buffer | null> {
     try {
-      await Logger.info(`📥 Validating PDF URL: ${pdfUrl}`, 'county-scraper');
+      await Logger.info(`📥 Downloading PDF from: ${pdfUrl}`, 'county-scraper');
       
-      // Quick validation with a HEAD request
+      // Try to download the PDF
       try {
+        // First try direct fetch
         const response = await fetch(pdfUrl, {
-          method: 'HEAD',
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+            'Accept': 'application/pdf,*/*'
           }
         });
         
         if (response.ok) {
-          await Logger.success(`✅ PDF URL is valid: ${pdfUrl}`, 'county-scraper');
-          return true;
-        } else {
-          await Logger.info(`❌ PDF URL returned status ${response.status}`, 'county-scraper');
-          return false;
-        }
-      } catch (error) {
-        // If HEAD request fails, try navigating with browser
-        if (page) {
-          try {
-            const navResponse = await page.goto(pdfUrl, { 
-              waitUntil: 'domcontentloaded',
-              timeout: 10000 
-            });
-            
-            if (navResponse && navResponse.ok()) {
-              await Logger.success(`✅ PDF URL is accessible via browser: ${pdfUrl}`, 'county-scraper');
-              return true;
-            }
-          } catch (navError) {
-            await Logger.info(`❌ PDF URL not accessible: ${navError}`, 'county-scraper');
+          const arrayBuffer = await response.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          
+          // Check if it's actually a PDF (starts with %PDF)
+          const header = buffer.toString('utf8', 0, 5);
+          if (header.startsWith('%PDF')) {
+            await Logger.success(`✅ Downloaded PDF (${buffer.length} bytes): ${pdfUrl}`, 'county-scraper');
+            return buffer;
+          } else {
+            await Logger.info(`⚠️ Downloaded file is not a PDF (starts with: ${header})`, 'county-scraper');
           }
         }
-        return false;
+      } catch (fetchError) {
+        await Logger.info(`Direct fetch failed: ${fetchError}`, 'county-scraper');
       }
+      
+      // If direct fetch fails and we have a browser page, try downloading through browser
+      if (page) {
+        try {
+          const navResponse = await page.goto(pdfUrl, { 
+            waitUntil: 'networkidle2',
+            timeout: 15000 
+          });
+          
+          if (navResponse && navResponse.ok()) {
+            const buffer = await navResponse.buffer();
+            
+            // Check if it's a PDF
+            const header = buffer.toString('utf8', 0, 5);
+            if (header.startsWith('%PDF')) {
+              await Logger.success(`✅ Downloaded PDF via browser (${buffer.length} bytes)`, 'county-scraper');
+              return buffer;
+            }
+          }
+        } catch (navError) {
+          await Logger.info(`Browser download failed: ${navError}`, 'county-scraper');
+        }
+      }
+      
+      return null;
     } catch (error) {
-      await Logger.error(`Failed to validate PDF URL: ${error}`, 'county-scraper');
-      return false;
+      await Logger.error(`Failed to download PDF: ${error}`, 'county-scraper');
+      return null;
     }
   }
 
@@ -577,20 +594,21 @@ export class PuppeteerCountyScraper extends CountyScraper {
           // Log the detail page for reference
           await Logger.info(`📄 Document ${recordingNumber}: Detail page: ${docUrl}`, 'county-scraper');
           
-          // Validate PDF URL is accessible
-          const isValidPdf = await this.validatePdfUrl(actualPdfUrl, page);
+          // Download the actual PDF
+          const pdfBuffer = await this.downloadPdf(actualPdfUrl, recordingNumber, page);
           
-          if (isValidPdf) {
+          if (pdfBuffer) {
             const lienInfo = {
               recordingNumber,
               recordingDate: lienData.recordingDate ? new Date(lienData.recordingDate) : new Date(),
-              documentUrl: actualPdfUrl // Just store the PDF URL
+              documentUrl: actualPdfUrl,
+              pdfBuffer: pdfBuffer // Store the actual PDF data
             };
             
             liens.push(lienInfo);
-            await Logger.success(`✅ Found lien ${recordingNumber} with PDF URL: ${actualPdfUrl}`, 'county-scraper');
+            await Logger.success(`✅ Downloaded PDF for lien ${recordingNumber} (${pdfBuffer.length} bytes)`, 'county-scraper');
           } else {
-            await Logger.info(`⏭️ Skipping ${recordingNumber} - PDF not accessible`, 'county-scraper');
+            await Logger.info(`⏭️ Skipping ${recordingNumber} - PDF download failed`, 'county-scraper');
           }
         } catch (error) {
           await Logger.error(`Failed to process recording ${recordingNumber}: ${error}`, 'county-scraper');

@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { SchedulerService } from "./services/scheduler";
 import { Logger } from "./services/logger";
+import { pdfStorage } from "./services/pdf-storage";
 
 const scheduler = new SchedulerService();
 
@@ -89,6 +90,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PDF serving endpoint for Airtable
+  app.get("/api/pdf/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const pdf = pdfStorage.getPdf(id);
+      
+      if (!pdf) {
+        return res.status(404).json({ error: "PDF not found" });
+      }
+      
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="${pdf.filename}"`);
+      res.send(pdf.buffer);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to serve PDF" });
+    }
+  });
+
   // County management routes
   app.get("/api/counties", async (req, res) => {
     try {
@@ -161,31 +180,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pdfBuffer = Buffer.from(await response.arrayBuffer());
       await Logger.info(`Downloaded PDF: ${pdfBuffer.length} bytes`, 'test');
       
-      // Parse with OCR
-      const { OCRHelper } = await import('./services/ocr-helper');
-      const extractedText = await OCRHelper.extractTextFromPDF(pdfBuffer);
-      await Logger.info(`Extracted text length: ${extractedText.length} characters`, 'test');
-      await Logger.info(`First 500 chars of extracted text: ${extractedText.substring(0, 500)}`, 'test');
+      // OCR removed - just validate PDF
+      await Logger.info(`PDF validated: ${pdfBuffer.length} bytes`, 'test');
+      const ocrData = { debtorName: 'To be extracted', debtorAddress: '', amount: 0 };
       
-      const ocrData = OCRHelper.parseTextForLienInfo(extractedText);
-      await Logger.info(`OCR extraction complete: Found debtor: ${ocrData.debtorName}, Amount: ${ocrData.amount}`, 'test');
-      
-      // Create lien if data was extracted
-      if (ocrData.debtorName && ocrData.debtorName !== 'Unknown' && ocrData.amount > 20000) {
+      // Create lien regardless of amount
+      if (true) {
         const lien = {
           recordingNumber,
-          recordingDate: new Date().toISOString(),
-          county: 'Maricopa County',
-          state: 'Arizona',
+          recordDate: new Date(),
+          countyId: 'maricopa-az',
           debtorName: ocrData.debtorName,
           debtorAddress: ocrData.debtorAddress || '',
-          creditorName: '',
-          amount: ocrData.amount,
-          documentType: 'MEDICAL LIEN',
-          pdfUrl,
-          ocrConfidence: 0.9,
-          isEnriched: false,
-          isAirtableSynced: false
+          creditorName: 'Medical Provider',
+          creditorAddress: '',
+          amount: ocrData.amount.toString(),
+          documentUrl: pdfUrl,
+          status: 'pending'
         };
         
         await storage.createLien(lien);
@@ -203,19 +214,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         recordingNumber,
         pdfDownloaded: true,
-        extractedText: extractedText.substring(0, 1000), // First 1000 chars for debugging
-        extractedTextLength: extractedText.length,
-        ocrData: {
-          debtorName: ocrData.debtorName,
-          debtorAddress: ocrData.debtorAddress,
-          amount: ocrData.amount
-        },
-        message: ocrData.amount <= 20000 ? 'Amount below $20,000 threshold' : 'OCR data incomplete'
+        pdfSize: pdfBuffer.length,
+        message: 'PDF successfully downloaded'
       });
       
     } catch (error) {
       await Logger.error(`Test recording failed: ${error}`, 'test');
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Test failed' });
     }
   });
 
