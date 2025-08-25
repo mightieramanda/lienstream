@@ -101,20 +101,38 @@ export class PuppeteerCountyScraper extends CountyScraper {
           }
         } catch (browserError) {
           await Logger.info(`Browser download failed, trying direct fetch: ${browserError}`, 'county-scraper');
-          // Fall back to direct fetch
-          const response = await fetch(pdfUrl);
+          // Fall back to direct fetch with proper headers
+          const response = await fetch(pdfUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+              'Accept': 'application/pdf,*/*',
+              'Accept-Language': 'en-US,en;q=0.9',
+              'Accept-Encoding': 'gzip, deflate, br',
+              'Connection': 'keep-alive'
+            }
+          });
           if (!response.ok) {
             throw new Error(`Direct download failed: ${response.status}`);
           }
           pdfBuffer = await response.arrayBuffer();
+          await Logger.info(`✅ Downloaded PDF through direct fetch`, 'county-scraper');
         }
       } else {
-        // No page provided, use direct fetch
-        const response = await fetch(pdfUrl);
+        // No page provided, use direct fetch with proper headers
+        const response = await fetch(pdfUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+            'Accept': 'application/pdf,*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive'
+          }
+        });
         if (!response.ok) {
           throw new Error(`Failed to download PDF: ${response.status}`);
         }
         pdfBuffer = await response.arrayBuffer();
+        await Logger.info(`✅ Downloaded PDF through direct fetch`, 'county-scraper');
       }
       
       // Use OCR helper to extract text (handles both text PDFs and scanned images)
