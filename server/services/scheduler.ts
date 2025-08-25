@@ -79,18 +79,24 @@ export class SchedulerService {
           };
           const scraper = createCountyScraper(county, countyConfig) as PuppeteerCountyScraper;
           allScrapers.push(scraper);
+          
+          // Initialize the scraper
+          await scraper.initialize();
 
-          const scrapedLiens = await scraper.scrapeLiens();
+          const scrapedLiens = await scraper.scrapeCountyLiens();
           
           if (scrapedLiens.length > 0) {
             totalLiensFound += scrapedLiens.length;
+            
+            // Save liens to storage
+            await scraper.saveLiens(scrapedLiens);
             
             // Update county run
             await storage.updateCountyRun(countyRunId, {
               status: 'completed',
               endTime: new Date(),
               liensFound: scrapedLiens.length,
-              liensProcessed: scrapedLiens.filter(l => parseFloat(l.amount) >= 20000).length
+              liensProcessed: scrapedLiens.filter(l => l.amount >= 20000).length
             });
           } else {
             await storage.updateCountyRun(countyRunId, {
@@ -111,7 +117,8 @@ export class SchedulerService {
       let allLiensOver20k: any[] = [];
       for (const scraper of allScrapers) {
         if (scraper.liens && scraper.liens.length > 0) {
-          allLiensOver20k = allLiensOver20k.concat(scraper.liens);
+          const liensOver20k = scraper.liens.filter(l => l.amount >= 20000);
+          allLiensOver20k = allLiensOver20k.concat(liensOver20k);
         }
       }
       totalLiensProcessed = allLiensOver20k.length;
