@@ -23,40 +23,68 @@ export class OCRHelper {
       // If text extraction failed, use OCR on the PDF as image
       await Logger.info(`Using OCR to extract text from scanned PDF`, 'ocr-helper');
       
-      // Convert PDF buffer to base64 for Tesseract
-      const base64 = Buffer.from(pdfBuffer).toString('base64');
-      const dataUri = `data:application/pdf;base64,${base64}`;
+      // Use Puppeteer to convert PDF to image first
+      const puppeteer = (await import('puppeteer')).default;
+      const browser = await puppeteer.launch({ 
+        headless: true,
+        executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+      });
       
-      // Load the PDF document
-      const pdfDoc = await PDFDocument.load(pdfBuffer);
-      const pages = pdfDoc.getPages();
-      
-      if (pages.length === 0) {
-        throw new Error('PDF has no pages');
-      }
-      
-      // For medical liens, the important info is usually on the first page
-      // We'll process just the first page for efficiency
       let ocrText = '';
       
-      // Convert first page to image and run OCR
-      // Since we can't directly convert PDF pages to images with the current setup,
-      // we'll use a simpler approach with Tesseract directly on the PDF
-      
-      const worker = await Tesseract.createWorker('eng');
-      
       try {
-        // Try to process the PDF directly with Tesseract
-        // This works for some PDF formats
-        const { data } = await worker.recognize(dataUri);
-        ocrText = data.text;
-        await Logger.info(`OCR extracted ${ocrText.length} characters`, 'ocr-helper');
-      } catch (ocrError) {
-        await Logger.error(`Direct PDF OCR failed: ${ocrError}`, 'ocr-helper');
-        // Fall back to returning empty text
-        ocrText = '';
+        const page = await browser.newPage();
+        
+        // Convert PDF buffer to base64 data URL
+        const base64 = Buffer.from(pdfBuffer).toString('base64');
+        const pdfDataUrl = `data:application/pdf;base64,${base64}`;
+        
+        // Set viewport for consistent rendering
+        await page.setViewport({ width: 1200, height: 1600 });
+        
+        // Create an HTML page that displays the PDF
+        const html = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { margin: 0; padding: 0; }
+              embed { width: 100vw; height: 100vh; }
+            </style>
+          </head>
+          <body>
+            <embed src="${pdfDataUrl}" type="application/pdf" />
+          </body>
+          </html>
+        `;
+        
+        await page.setContent(html);
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for PDF to render
+        
+        // Take a screenshot of the PDF
+        const screenshotBuffer = await page.screenshot({ 
+          fullPage: false,
+          type: 'png'
+        });
+        
+        await Logger.info(`Captured PDF as image: ${screenshotBuffer.length} bytes`, 'ocr-helper');
+        
+        // Now run OCR on the image
+        const worker = await Tesseract.createWorker('eng');
+        
+        try {
+          const { data } = await worker.recognize(screenshotBuffer);
+          ocrText = data.text;
+          await Logger.info(`OCR extracted ${ocrText.length} characters`, 'ocr-helper');
+        } catch (ocrError) {
+          await Logger.error(`OCR processing failed: ${ocrError}`, 'ocr-helper');
+        } finally {
+          await worker.terminate();
+        }
+        
       } finally {
-        await worker.terminate();
+        await browser.close();
       }
       
       return ocrText;
@@ -75,27 +103,29 @@ export class OCRHelper {
     // Enhanced patterns for Arizona medical lien documents
     
     // Look for debtor/patient name
-    for (let i = 0; i < Math.min(lines.length, 30); i++) {
+    for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const upperLine = line.toUpperCase();
       
+      // Look for patient name pattern in medical liens
+      if (upperLine.includes('NAME AND ADDRESS OF PATIENT')) {
+        // Patient name is typically on the next line or same line after colon
+        if (i + 1 < lines.length) {
+          const nextLine = lines[i + 1].trim();
+          // Check if it's a name pattern (not an address or organization)
+          if (nextLine && !nextLine.match(/^\d+/) && !nextLine.toUpperCase().includes('MEDICAL') && !nextLine.toUpperCase().includes('CLINIC')) {
+            debtorName = nextLine;
+            break;
+          }
+        }
+      }
       // Check for labeled name fields
-      if (upperLine.includes('DEBTOR:') || upperLine.includes('PATIENT:') || upperLine.includes('NAME:')) {
+      else if (upperLine.includes('DEBTOR:') || upperLine.includes('PATIENT:')) {
         const namePart = line.split(/[:]/)[1]?.trim();
         if (namePart && namePart.length > 3 && namePart.length < 100) {
           debtorName = namePart;
           break;
         }
-      }
-      // Check for all-caps name at top of document (common in legal docs)
-      else if (i < 10 && line.match(/^[A-Z][A-Z\s,.-]+$/) && line.length > 5 && line.length < 50 && !line.includes('LIEN') && !line.includes('MEDICAL')) {
-        debtorName = line;
-        break;
-      }
-      // Standard name format
-      else if (i < 15 && line.match(/^[A-Z][a-z]+ [A-Z][a-z]+/)) {
-        debtorName = line;
-        break;
       }
     }
     

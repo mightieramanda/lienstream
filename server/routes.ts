@@ -162,6 +162,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Parse with OCR
       const { OCRHelper } = await import('./services/ocr-helper');
       const extractedText = await OCRHelper.extractTextFromPDF(pdfBuffer);
+      await Logger.info(`Extracted text length: ${extractedText.length} characters`, 'test');
+      await Logger.info(`First 500 chars of extracted text: ${extractedText.substring(0, 500)}`, 'test');
+      
       const ocrData = OCRHelper.parseTextForLienInfo(extractedText);
       await Logger.info(`OCR extraction complete: Found debtor: ${ocrData.debtorName}, Amount: ${ocrData.amount}`, 'test');
       
@@ -198,6 +201,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         recordingNumber,
         pdfDownloaded: true,
+        extractedText: extractedText.substring(0, 1000), // First 1000 chars for debugging
+        extractedTextLength: extractedText.length,
         ocrData: {
           debtorName: ocrData.debtorName,
           debtorAddress: ocrData.debtorAddress,
