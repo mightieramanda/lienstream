@@ -51,8 +51,12 @@ export class AirtableService {
             'Status': 'New',
             'County Name': countyName,
             'Document ID': lien.recordingNumber,
-            'Grantor/Grantee Names': `${lien.debtorName}${lien.creditorName ? ` / ${lien.creditorName}` : ''}`,
-            'Lien Amount': parseFloat(lien.amount)
+            'Grantor/Grantee Names': lien.debtorName,
+            'Lien Amount': parseFloat(lien.amount),
+            'Recorded Date/Time': lien.recordingDate ? new Date(lien.recordingDate).toISOString() : new Date().toISOString(),
+            'Address': lien.debtorAddress || '',
+            'PDF Link': lien.documentUrl || '',
+            'Creditor Name': lien.creditorName || ''
           }
         };
       });
