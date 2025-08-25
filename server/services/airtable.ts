@@ -55,7 +55,7 @@ export class AirtableService {
             'Lien Amount': parseFloat(lien.amount),
             'Recorded Date/Time': lien.recordingDate ? new Date(lien.recordingDate).toISOString() : new Date().toISOString(),
             'Address': lien.debtorAddress || 'Not Available',
-            'PDF Link': lien.documentUrl || `https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataImage.aspx?rec=${lien.recordingNumber}`,
+            'PDF Link': lien.documentUrl || `https://legacy.recorder.maricopa.gov/UnOfficialDocs/pdf/${lien.recordingNumber}.pdf`,
             'Creditor Name': lien.creditorName || ''
           }
         };

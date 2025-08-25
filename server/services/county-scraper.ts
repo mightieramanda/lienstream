@@ -386,9 +386,9 @@ export class PuppeteerCountyScraper extends CountyScraper {
               }
             }
             
-            // If no PDF link found, construct a likely URL pattern based on common formats
-            // Many county sites use patterns like GetRecDataDetail.aspx?rec=XXXXX
-            return `https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataDetail.aspx?rec=${recNum}`;
+            // If no PDF link found, construct the direct PDF URL
+            // PDFs are at UnOfficialDocs/pdf/{recordNumber}.pdf
+            return `https://legacy.recorder.maricopa.gov/UnOfficialDocs/pdf/${recNum}.pdf`;
           }, recordingNumber);
           
           // Check if we found a valid PDF link (not JavaScript)
@@ -397,14 +397,14 @@ export class PuppeteerCountyScraper extends CountyScraper {
           if (pdfLink && !pdfLink.includes('javascript:')) {
             actualPdfUrl = pdfLink;
             // Check if it's our constructed URL or an actual link found on the page
-            if (pdfLink.includes('GetRecDataDetail.aspx')) {
-              await Logger.info(`🔗 Using constructed PDF URL: ${actualPdfUrl}`, 'county-scraper');
+            if (pdfLink.includes('UnOfficialDocs/pdf')) {
+              await Logger.info(`🔗 Using direct PDF URL: ${actualPdfUrl}`, 'county-scraper');
             } else {
               await Logger.info(`📎 Found actual PDF link: ${actualPdfUrl}`, 'county-scraper');
             }
           } else {
-            // No valid link found, use the constructed URL pattern
-            actualPdfUrl = `https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataDetail.aspx?rec=${recordingNumber}`;
+            // No valid link found, use the direct PDF URL pattern
+            actualPdfUrl = `https://legacy.recorder.maricopa.gov/UnOfficialDocs/pdf/${recordingNumber}.pdf`;
             await Logger.info(`🔗 No valid PDF link found, using constructed URL: ${actualPdfUrl}`, 'county-scraper');
           }
           
