@@ -237,10 +237,10 @@ export class PuppeteerCountyScraper extends CountyScraper {
       await Logger.info(`Starting lien scraping for ${this.county.name}`, 'county-scraper');
 
       // Search for 8/22/2025 as requested
-      // Search for liens from January 2024 to ensure PDFs are available
-      // Using a smaller range to avoid processing too many liens during testing
-      const startDate = new Date('2024-01-08');
-      const endDate = new Date('2024-01-08');
+      // Search for liens from August 20, 2025
+      // Testing with a recent date to find actual current liens
+      const startDate = new Date('2025-08-20');
+      const endDate = new Date('2025-08-20');
       
       const startMonth = startDate.getMonth() + 1;
       const startDay = startDate.getDate();
@@ -386,11 +386,10 @@ export class PuppeteerCountyScraper extends CountyScraper {
 
       await Logger.success(`✅ Collected ${allRecordingNumbers.length} total recording numbers from ${pageNum} pages`, 'county-scraper');
 
-      // Process actual recording numbers found on the page (limit to 10 for testing)
-      const limitedRecordingNumbers = allRecordingNumbers.slice(0, 10);
-      await Logger.info(`Processing ${limitedRecordingNumbers.length} of ${allRecordingNumbers.length} total recording numbers`, 'county-scraper');
+      // Process all recording numbers found on the page
+      await Logger.info(`Processing ${allRecordingNumbers.length} recording numbers`, 'county-scraper');
       
-      for (const recordingNumber of limitedRecordingNumbers) {
+      for (const recordingNumber of allRecordingNumbers) {
         await Logger.info(`📑 Processing recording number: ${recordingNumber}`, 'county-scraper');
         
         try {
