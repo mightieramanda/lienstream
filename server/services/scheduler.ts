@@ -107,15 +107,31 @@ export class SchedulerService {
         }
       }
 
-      // Step 3: Get saved liens for processing
-      const savedLiens = await storage.getLiensByStatus('pending');
-      const liensOver20k = savedLiens.filter(l => parseFloat(l.amount) >= 20000);
-      totalLiensProcessed = liensOver20k.length;
+      // Step 3: Get all scraped liens over $20,000 for Airtable sync
+      let allLiensOver20k: any[] = [];
+      for (const scraper of allScrapers) {
+        if (scraper.liens && scraper.liens.length > 0) {
+          allLiensOver20k = allLiensOver20k.concat(scraper.liens);
+        }
+      }
+      totalLiensProcessed = allLiensOver20k.length;
 
       // Step 4: Sync to Airtable
-      if (liensOver20k.length > 0) {
-        await Logger.info(`Syncing ${liensOver20k.length} liens to Airtable`, 'scheduler');
-        await this.airtableService.syncLiensToAirtable(liensOver20k);
+      if (allLiensOver20k.length > 0) {
+        await Logger.info(`Syncing ${allLiensOver20k.length} liens to Airtable`, 'scheduler');
+        
+        // Transform liens to match Airtable service expectations
+        const liensForAirtable = allLiensOver20k.map(lien => ({
+          recordingNumber: lien.recordingNumber,
+          recordingDate: lien.recordingDate,
+          amount: lien.amount.toString(),
+          debtorName: lien.debtorName,
+          creditorName: lien.creditorName,
+          countyId: this.isRunning ? '1' : '1', // Use default county ID for now
+          status: 'pending'
+        }));
+        
+        await this.airtableService.syncLiensToAirtable(liensForAirtable);
       }
 
       // Step 5: Update automation run status

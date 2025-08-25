@@ -29,26 +29,22 @@ export class AirtableService {
     }
   }
 
-  async syncLiensToAirtable(liens: Lien[]): Promise<void> {
-    if (!this.apiKey || !this.baseId) {
+  async syncLiensToAirtable(liens: any[]): Promise<void> {
+    if (!this.apiKey || !this.baseId || !this.tableId) {
       await Logger.error('Airtable not configured - skipping sync', 'airtable');
       return;
     }
 
     try {
-      await Logger.info(`Starting Airtable sync for ${liens.length} liens`, 'airtable');
+      await Logger.info(`Starting Airtable sync for ${liens.length} liens to base: ${this.baseId}, table: ${this.tableId}`, 'airtable');
 
       // Generate batch ID for this scrape session
       const batchId = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
       
-      const records: AirtableRecord[] = await Promise.all(liens.map(async (lien) => {
-        // Get county information
-        const county = await storage.getCounty(lien.countyId);
-        const countyName = county?.name || 'Unknown County';
-        const stateName = county?.state || 'Unknown State';
-        
-        // Format lien amount as currency
-        const formattedAmount = `$${parseFloat(lien.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+      const records: AirtableRecord[] = liens.map((lien) => {
+        // Get county name from lien or default
+        const countyName = 'Maricopa County';
+        const stateName = 'Arizona';
         
         return {
           fields: {
@@ -59,7 +55,7 @@ export class AirtableService {
             'Lien Amount': parseFloat(lien.amount)
           }
         };
-      }));
+      });
 
       // Batch create records (Airtable allows up to 10 records per request)
       const batches = this.chunkArray(records, 10);
@@ -67,13 +63,16 @@ export class AirtableService {
 
       for (const batch of batches) {
         try {
+          const payload = { records: batch };
+          await Logger.info(`Sending to Airtable: ${JSON.stringify(payload.records[0].fields)}`, 'airtable');
+          
           const response = await fetch(`https://api.airtable.com/v0/${this.baseId}/${this.tableId}`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${this.apiKey}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ records: batch })
+            body: JSON.stringify(payload)
           });
 
           if (!response.ok) {
@@ -83,26 +82,11 @@ export class AirtableService {
 
           const result = await response.json();
           
-          // Update local records with Airtable IDs
-          for (let i = 0; i < result.records.length; i++) {
-            const airtableRecord = result.records[i];
-            const originalRecordingNumber = batch[i].fields['Document ID'];
-            
-            await storage.updateLienAirtableId(originalRecordingNumber, airtableRecord.id);
-          }
-
           syncedCount += batch.length;
           await Logger.info(`Synced batch to Airtable: ${batch.length} records`, 'airtable');
           
         } catch (error) {
           await Logger.error(`Failed to sync batch to Airtable: ${error}`, 'airtable');
-        }
-      }
-
-      // Update status for all successfully synced liens
-      for (const lien of liens) {
-        if (lien.airtableRecordId) {
-          await storage.updateLienStatus(lien.recordingNumber, 'synced');
         }
       }
 

@@ -74,6 +74,7 @@ export abstract class CountyScraper {
 
 export class PuppeteerCountyScraper extends CountyScraper {
   private browser: Browser | null = null;
+  public liens: any[] = []; // Store liens for access by scheduler
 
   async initialize() {
     try {
@@ -299,6 +300,12 @@ export class PuppeteerCountyScraper extends CountyScraper {
       }
 
       await Logger.success(`🎯 Found ${liens.length} liens over $20,000 in ${this.county.name}`, 'county-scraper');
+      
+      // Store liens for access by scheduler
+      this.liens = liens;
+      
+      // Save liens to storage for Airtable sync
+      await this.saveLiens(liens);
 
     } catch (error) {
       await Logger.error(`Failed to scrape liens from ${this.county.name}: ${error}`, 'county-scraper');
