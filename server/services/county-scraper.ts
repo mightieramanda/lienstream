@@ -53,8 +53,7 @@ export abstract class CountyScraper {
           id: crypto.randomUUID(),
           recordingNumber: lien.recordingNumber,
           recordDate: lien.recordingDate,
-          countyName: this.county.name,
-          countyState: this.county.state,
+          countyId: this.county.id,
           debtorName: lien.debtorName,
           debtorAddress: lien.debtorAddress,
           amount: lien.amount.toString(),
@@ -77,7 +76,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
   private browser: Browser | null = null;
   public liens: any[] = []; // Store liens for access by scheduler
 
-  async downloadAndParsePDF(pdfUrl: string, page?: Page): Promise<{ debtorName: string; debtorAddress: string; amount: number }> {
+  async downloadAndParsePDF(pdfUrl: string, page?: Page): Promise<{ debtorName: string; debtorAddress: string; amount: number } | null> {
     try {
       await Logger.info(`📥 Downloading PDF from: ${pdfUrl}`, 'county-scraper');
       
@@ -138,25 +137,8 @@ export class PuppeteerCountyScraper extends CountyScraper {
       // If OCR didn't extract meaningful data, use realistic demo data
       // In production with proper OCR setup, this wouldn't be needed
       if (lienInfo.amount === 0 || lienInfo.debtorName === 'Unknown') {
-        await Logger.info(`OCR extraction incomplete, using fallback data for demo`, 'county-scraper');
-        
-        // Generate realistic medical lien data for demonstration
-        const demoAmount = Math.floor(Math.random() * 150000) + 5000;
-        const demoNames = [
-          'John Smith', 'Maria Garcia', 'Robert Johnson', 'Patricia Williams',
-          'Michael Brown', 'Jennifer Davis', 'David Miller', 'Linda Wilson'
-        ];
-        const demoAddresses = [
-          '123 Main St, Phoenix, AZ 85001',
-          '456 Oak Ave, Scottsdale, AZ 85251',
-          '789 Desert Rd, Mesa, AZ 85201'
-        ];
-        
-        lienInfo.debtorName = demoNames[Math.floor(Math.random() * demoNames.length)];
-        lienInfo.debtorAddress = demoAddresses[Math.floor(Math.random() * demoAddresses.length)];
-        lienInfo.amount = demoAmount;
-        
-        await Logger.info(`Demo data: ${lienInfo.debtorName}, $${demoAmount.toLocaleString()}`, 'county-scraper');
+        await Logger.info(`⏭️ OCR extraction incomplete, skipping this lien`, 'county-scraper');
+        return null;
       } else {
         await Logger.success(`📋 OCR extracted - Name: ${lienInfo.debtorName}, Amount: $${lienInfo.amount.toLocaleString()}`, 'county-scraper');
       }
@@ -165,39 +147,10 @@ export class PuppeteerCountyScraper extends CountyScraper {
     } catch (error) {
       await Logger.error(`Failed to parse PDF with OCR: ${error}`, 'county-scraper');
       
-      // When PDFs aren't accessible, use realistic demo data to demonstrate system functionality
-      // This allows the system to show its Airtable integration and filtering capabilities
-      const demoNames = [
-        'John Smith', 'Maria Garcia', 'Robert Johnson', 'Patricia Williams',
-        'Michael Brown', 'Jennifer Davis', 'David Miller', 'Linda Wilson',
-        'James Anderson', 'Barbara Thomas', 'William Jackson', 'Elizabeth White'
-      ];
+      // Skip PDFs that can't be downloaded or parsed (404 errors, etc.)
+      await Logger.info(`⏭️ Skipping lien due to PDF download/parse error`, 'county-scraper');
       
-      const demoAddresses = [
-        '123 Main St, Phoenix, AZ 85001',
-        '456 Oak Ave, Scottsdale, AZ 85251',
-        '789 Desert Rd, Mesa, AZ 85201',
-        '321 Sunset Blvd, Tempe, AZ 85281',
-        '654 Mountain View Dr, Glendale, AZ 85301',
-        '987 Valley Ln, Chandler, AZ 85224'
-      ];
-      
-      // Generate realistic medical lien amounts (ranging from $5,000 to $150,000)
-      const randomAmount = Math.floor(Math.random() * 145000) + 5000;
-      
-      // Use deterministic selection based on URL to ensure consistency
-      const urlHash = pdfUrl.split('/').pop()?.replace('.pdf', '') || '0';
-      const index = parseInt(urlHash.slice(-2), 10) % demoNames.length;
-      
-      const demoData = {
-        debtorName: demoNames[index] || demoNames[0],
-        debtorAddress: demoAddresses[index % demoAddresses.length] || demoAddresses[0],
-        amount: randomAmount
-      };
-      
-      await Logger.info(`📊 Using demo data for ${urlHash}: ${demoData.debtorName}, $${randomAmount.toLocaleString()}`, 'county-scraper');
-      
-      return demoData;
+      return null;
     }
   }
 
@@ -543,6 +496,12 @@ export class PuppeteerCountyScraper extends CountyScraper {
           // Download and parse the PDF with OCR if needed, using the browser session
           const extractedData = await this.downloadAndParsePDF(actualPdfUrl, page);
           
+          // Skip if PDF couldn't be downloaded or parsed (returns null)
+          if (!extractedData) {
+            await Logger.info(`⏭️ Skipping ${recordingNumber} - PDF not accessible`, 'county-scraper');
+            continue;
+          }
+          
           // Log the extraction results
           if (extractedData.amount > 0) {
             await Logger.info(`📊 Extracted from PDF ${recordingNumber}: Amount: $${extractedData.amount.toLocaleString()}`, 'county-scraper');
@@ -641,8 +600,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
         await storage.createLien({
           recordingNumber: lien.recordingNumber,
           recordDate: lien.recordingDate,
-          countyName: this.county.name,
-          countyState: this.county.state || 'Arizona',
+          countyId: this.county.id,
           debtorName: lien.debtorName,
           debtorAddress: lien.debtorAddress,
           amount: lien.amount.toString(),
