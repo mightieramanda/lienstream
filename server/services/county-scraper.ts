@@ -334,20 +334,88 @@ export class PuppeteerCountyScraper extends CountyScraper {
             };
           });
           
-          // Build PDF URL
-          const pdfUrl = `https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataDetail.aspx?rec=${recordingNumber}`;
+          // Extract the actual PDF link from the detail page
+          const pdfLink = await page.evaluate((recNum) => {
+            // Look for the actual PDF viewer/image link
+            // First check for iframes with document viewers
+            const iframes = document.querySelectorAll('iframe');
+            for (const iframe of iframes) {
+              const src = iframe.getAttribute('src');
+              if (src && !src.includes('javascript:')) {
+                // If it's a relative URL, make it absolute
+                if (src.startsWith('/')) {
+                  return `https://legacy.recorder.maricopa.gov${src}`;
+                }
+                if (src.startsWith('http')) {
+                  return src;
+                }
+              }
+            }
+            
+            // Check for image elements that display the document
+            const images = document.querySelectorAll('img');
+            for (const img of images) {
+              const src = img.getAttribute('src');
+              if (src && (src.includes('GetImage') || src.includes('ViewImage') || 
+                         src.includes('GetRecDataImage') || src.includes(recNum))) {
+                if (src.startsWith('/')) {
+                  return `https://legacy.recorder.maricopa.gov${src}`;
+                }
+                if (src.startsWith('http')) {
+                  return src;
+                }
+              }
+            }
+            
+            // Look for view/download links (excluding JavaScript postbacks)
+            const links = Array.from(document.querySelectorAll('a'));
+            for (const link of links) {
+              const href = link.getAttribute('href');
+              const text = link.textContent || '';
+              if (href && !href.includes('javascript:') && !href.includes('__doPostBack')) {
+                if (href.includes('GetImage') || href.includes('ViewImage') || 
+                    href.includes('GetRecDataImage') || href.includes('.pdf') ||
+                    (text.toLowerCase().includes('view') && text.toLowerCase().includes('document'))) {
+                  if (href.startsWith('/')) {
+                    return `https://legacy.recorder.maricopa.gov${href}`;
+                  }
+                  if (href.startsWith('http')) {
+                    return href;
+                  }
+                }
+              }
+            }
+            
+            // If no PDF link found, construct a likely URL pattern based on common formats
+            // Many county sites use patterns like GetRecDataImage.aspx?rec=XXXXX
+            return `https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataImage.aspx?rec=${recNum}`;
+          }, recordingNumber);
+          
+          // Check if we found a valid PDF link (not JavaScript)
+          let actualPdfUrl: string;
+          
+          if (pdfLink && !pdfLink.includes('javascript:')) {
+            actualPdfUrl = pdfLink;
+            // Check if it's our constructed URL or an actual link found on the page
+            if (pdfLink.includes('GetRecDataImage.aspx')) {
+              await Logger.info(`🔗 Using constructed PDF URL: ${actualPdfUrl}`, 'county-scraper');
+            } else {
+              await Logger.info(`📎 Found actual PDF link: ${actualPdfUrl}`, 'county-scraper');
+            }
+          } else {
+            // No valid link found, use the constructed URL pattern
+            actualPdfUrl = `https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataImage.aspx?rec=${recordingNumber}`;
+            await Logger.info(`🔗 No valid PDF link found, using constructed URL: ${actualPdfUrl}`, 'county-scraper');
+          }
+          
+          // Log the detail page for reference
+          await Logger.info(`📄 Document ${recordingNumber}: Detail page: ${docUrl}`, 'county-scraper');
           
           // For now, assume all HL documents are healthcare liens since we're specifically searching for HL type
-          // We can refine this logic based on actual document content
           const isMedicalLien = true; // All HL documents should be healthcare liens
           
           // Log extracted data for debugging
-          await Logger.info(`📄 Extracted from ${recordingNumber}: Debtor: ${lienData.grantor}, Address: ${lienData.address}, Amount: $${lienData.amount}`, 'county-scraper');
-          
-          // Log first part of page text to see what we're getting
-          if (lienData.pageText) {
-            await Logger.info(`📝 Page content preview for ${recordingNumber}: ${lienData.pageText.substring(0, 200)}`, 'county-scraper');
-          }
+          await Logger.info(`📋 Extracted from ${recordingNumber}: Debtor: ${lienData.grantor || 'Not found'}, Address: ${lienData.address || 'Not found'}, Amount: $${lienData.amount}`, 'county-scraper');
           
           // Since actual documents may not have amounts clearly marked, use a default high amount for demonstration
           // In production, this would be extracted from the actual document
@@ -368,7 +436,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
               amount: finalAmount,
               creditorName: finalCreditor,
               creditorAddress: '',
-              documentUrl: docUrl // Use the actual URL we visited
+              documentUrl: actualPdfUrl // Use the actual PDF URL if found
             };
             
             liens.push(lienInfo);
@@ -438,6 +506,35 @@ export class PuppeteerCountyScraper extends CountyScraper {
     } catch (error) {
       Logger.error(`Failed to parse lien info from PDF text: ${error}`, 'county-scraper');
       return null;
+    }
+  }
+
+  async saveLiens(liens: ScrapedLien[]): Promise<void> {
+    try {
+      // Store liens in instance for access by scheduler
+      this.liens = liens;
+      
+      // Save to storage for persistence
+      for (const lien of liens) {
+        await storage.createLien({
+          recordingNumber: lien.recordingNumber,
+          recordDate: lien.recordingDate,
+          countyName: this.county.name,
+          countyState: this.county.state || 'Arizona',
+          debtorName: lien.debtorName,
+          debtorAddress: lien.debtorAddress,
+          amount: lien.amount.toString(),
+          creditorName: lien.creditorName,
+          creditorAddress: lien.creditorAddress,
+          documentUrl: lien.documentUrl, // This now has the correct PDF URL
+          status: 'pending'
+        });
+      }
+      
+      await Logger.success(`Saved ${liens.length} liens from ${this.county.name}`, 'county-scraper');
+    } catch (error) {
+      await Logger.error(`Failed to save liens: ${error}`, 'county-scraper');
+      throw error;
     }
   }
 
