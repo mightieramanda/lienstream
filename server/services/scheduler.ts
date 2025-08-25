@@ -21,7 +21,7 @@ export class SchedulerService {
     await Logger.info('Scheduler started - daily runs at 6:00 AM', 'scheduler');
   }
 
-  async runAutomation(type: 'scheduled' | 'manual'): Promise<void> {
+  async runAutomation(type: 'scheduled' | 'manual', searchDate?: string): Promise<void> {
     if (this.isRunning) {
       await Logger.warning('Automation already running, skipping', 'scheduler');
       return;
@@ -33,7 +33,7 @@ export class SchedulerService {
       type,
       status: 'running',
       startTime: new Date(),
-      metadata: JSON.stringify({ startedBy: type })
+      metadata: JSON.stringify({ startedBy: type, searchDate })
     });
 
     try {
@@ -83,7 +83,7 @@ export class SchedulerService {
           // Initialize the scraper
           await scraper.initialize();
 
-          const scrapedLiens = await scraper.scrapeCountyLiens();
+          const scrapedLiens = await scraper.scrapeCountyLiens(searchDate);
           
           if (scrapedLiens.length > 0) {
             totalLiensFound += scrapedLiens.length;

@@ -195,7 +195,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
     }
   }
 
-  async scrapeCountyLiens(startDate?: Date, endDate?: Date): Promise<ScrapedLien[]> {
+  async scrapeCountyLiens(searchDate?: string): Promise<ScrapedLien[]> {
     if (!this.browser) {
       await this.initialize();
     }
@@ -208,11 +208,16 @@ export class PuppeteerCountyScraper extends CountyScraper {
     try {
       await Logger.info(`Starting lien scraping for ${this.county.name}`, 'county-scraper');
 
-      // Search for 8/22/2025 as requested
-      // Search for liens from August 20, 2025
-      // Testing with a recent date to find actual current liens
-      const startDate = new Date('2025-08-20');
-      const endDate = new Date('2025-08-20');
+      // Use provided search date or default to today
+      let dateToSearch = new Date();
+      if (searchDate) {
+        // Parse the searchDate string (expects MM/DD/YYYY format)
+        const [month, day, year] = searchDate.split('/').map(s => parseInt(s));
+        dateToSearch = new Date(year, month - 1, day);
+      }
+      
+      const startDate = dateToSearch;
+      const endDate = dateToSearch;
       
       const startMonth = startDate.getMonth() + 1;
       const startDay = startDate.getDate();

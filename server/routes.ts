@@ -43,8 +43,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Automation is already running" });
       }
 
-      // Start automation in background
-      scheduler.runAutomation('manual').catch(error => {
+      const searchDate = req.body.searchDate; // Get date from request body
+      
+      // Start automation in background with optional date
+      scheduler.runAutomation('manual', searchDate).catch(error => {
         Logger.error(`Manual automation failed: ${error}`, 'api');
       });
 
