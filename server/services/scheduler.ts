@@ -9,6 +9,7 @@ export class SchedulerService {
   private isRunning = false;
   private scheduledTask: any | null = null;
   private currentSchedule = '0 6 * * *'; // Default: 6:00 AM daily
+  private currentTimezone = 'PT'; // Default: Pacific Time
 
   constructor() {
     this.airtableService = new AirtableService();
@@ -19,6 +20,7 @@ export class SchedulerService {
     const savedSchedule = await storage.getScheduleConfig();
     if (savedSchedule) {
       this.currentSchedule = savedSchedule.cronExpression;
+      this.currentTimezone = savedSchedule.timezone || 'PT';
     }
 
     // Schedule the task
@@ -40,7 +42,7 @@ export class SchedulerService {
     });
   }
 
-  async updateSchedule(hour: number, minute: number): Promise<void> {
+  async updateSchedule(hour: number, minute: number, timezone: string = 'PT'): Promise<void> {
     // Create cron expression (minute hour * * *)
     const cronExpression = `${minute} ${hour} * * *`;
     
@@ -51,12 +53,14 @@ export class SchedulerService {
 
     // Update the schedule
     this.currentSchedule = cronExpression;
+    this.currentTimezone = timezone;
     
     // Save to storage
     await storage.saveScheduleConfig({ 
       cronExpression,
       hour,
       minute,
+      timezone,
       updatedAt: new Date()
     });
 
@@ -64,10 +68,10 @@ export class SchedulerService {
     this.scheduleTask();
     
     const scheduleTime = this.getHumanReadableSchedule();
-    await Logger.info(`Schedule updated to ${scheduleTime}`, 'scheduler');
+    await Logger.info(`Schedule updated to ${scheduleTime} ${timezone}`, 'scheduler');
   }
 
-  getScheduleInfo(): { cronExpression: string; hour: number; minute: number; humanReadable: string } {
+  getScheduleInfo(): { cronExpression: string; hour: number; minute: number; timezone: string; humanReadable: string } {
     // Parse the cron expression to get hour and minute
     const parts = this.currentSchedule.split(' ');
     const minute = parseInt(parts[0]);
@@ -77,6 +81,7 @@ export class SchedulerService {
       cronExpression: this.currentSchedule,
       hour,
       minute,
+      timezone: this.currentTimezone,
       humanReadable: this.getHumanReadableSchedule()
     };
   }

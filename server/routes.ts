@@ -120,7 +120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/automation/schedule", async (req, res) => {
     try {
-      const { hour, minute } = req.body;
+      const { hour, minute, timezone = 'PT' } = req.body;
       
       if (typeof hour !== 'number' || typeof minute !== 'number') {
         return res.status(400).json({ error: "Invalid schedule time" });
@@ -130,7 +130,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid time values" });
       }
       
-      await scheduler.updateSchedule(hour, minute);
+      const validTimezones = ['PT', 'CT', 'ET'];
+      if (!validTimezones.includes(timezone)) {
+        return res.status(400).json({ error: "Invalid timezone. Must be PT, CT, or ET" });
+      }
+      
+      await scheduler.updateSchedule(hour, minute, timezone);
       const scheduleInfo = scheduler.getScheduleInfo();
       res.json(scheduleInfo);
     } catch (error) {
