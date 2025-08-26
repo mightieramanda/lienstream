@@ -4,16 +4,20 @@ import { QuickActions } from "@/components/quick-actions";
 import { RecentLiensTable } from "@/components/recent-liens-table";
 import { SystemLogs } from "@/components/system-logs";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 export default function Dashboard() {
   const { toast } = useToast();
+  const [searchDate, setSearchDate] = useState(new Date().toISOString().split('T')[0]);
 
   const handleManualTrigger = async () => {
     try {
       const response = await fetch('/api/automation/trigger', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ searchDate })
       });
       
       if (!response.ok) {
@@ -23,7 +27,7 @@ export default function Dashboard() {
       
       toast({
         title: "Automation Started",
-        description: "Manual automation run has been triggered successfully.",
+        description: `Searching for liens from ${searchDate}`,
       });
     } catch (error) {
       toast({
@@ -44,6 +48,16 @@ export default function Dashboard() {
             <p className="text-slate-500 mt-1">Real-time monitoring and control center</p>
           </div>
           <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-slate-600">Date:</label>
+              <Input
+                type="date"
+                value={searchDate}
+                onChange={(e) => setSearchDate(e.target.value)}
+                className="w-40"
+                data-testid="input-search-date"
+              />
+            </div>
             <Button 
               onClick={handleManualTrigger}
               className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-5 py-2.5 rounded-lg font-medium flex items-center space-x-2 shadow-lg shadow-blue-500/25 transition-all hover:shadow-xl hover:shadow-blue-500/30"
