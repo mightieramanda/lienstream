@@ -120,7 +120,7 @@ export function AutomationStatus() {
     <div className="xl:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200">
       <div className="p-6 border-b border-slate-200">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-slate-800">Automation Status</h3>
+          <h3 className="text-lg font-semibold text-slate-800">Processing Pipeline</h3>
           <div className="flex items-center space-x-2">
             <div className={`w-3 h-3 rounded-full ${automationStatus.isRunning ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
             <span className={`text-sm font-medium ${automationStatus.isRunning ? 'text-emerald-600' : 'text-slate-500'}`} data-testid="text-automation-status">

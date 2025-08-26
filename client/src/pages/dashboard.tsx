@@ -41,18 +41,19 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-slate-800">Dashboard</h2>
-            <p className="text-slate-500 mt-1">Monitor lien records and automation status</p>
+            <p className="text-slate-500 mt-1">Real-time monitoring and control center</p>
           </div>
           <div className="flex items-center space-x-3">
             <Button 
               onClick={handleManualTrigger}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center space-x-2"
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-5 py-2.5 rounded-lg font-medium flex items-center space-x-2 shadow-lg shadow-blue-500/25 transition-all hover:shadow-xl hover:shadow-blue-500/30"
               data-testid="button-run-now"
             >
-              <i className="fas fa-play text-sm"></i>
-              <span>Run Now</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <span>Start Automation</span>
             </Button>
-            
           </div>
         </div>
       </header>

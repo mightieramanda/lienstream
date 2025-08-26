@@ -93,8 +93,8 @@ export function StatusCards() {
                 {card.value}
               </p>
             </div>
-            <div className={`w-12 h-12 bg-${card.color}-100 rounded-full flex items-center justify-center`}>
-              <i className={`${card.icon} text-${card.color}-600`}></i>
+            <div className={`w-12 h-12 bg-gradient-to-br from-${card.color}-100 to-${card.color}-200 rounded-xl flex items-center justify-center shadow-sm`}>
+              <i className={`${card.icon} text-${card.color}-700`}></i>
             </div>
           </div>
           <div className="flex items-center mt-4">

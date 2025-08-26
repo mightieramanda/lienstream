@@ -53,9 +53,9 @@ export function QuickActions() {
 
   const actions = [
     {
-      title: "Run Automation",
-      description: "Start scraping process",
-      icon: "fas fa-play",
+      title: "Run Full Sync",
+      description: "Scrape and sync all data",
+      icon: "fas fa-bolt",
       color: "blue",
       onClick: handleAirtableSync,
       testId: "run-automation"
@@ -96,11 +96,11 @@ export function QuickActions() {
           <button
             key={index}
             onClick={action.onClick}
-            className={`w-full text-left p-4 rounded-lg border border-slate-200 hover:border-${action.color}-300 hover:bg-${action.color}-50 transition-colors`}
+            className={`w-full text-left p-4 rounded-lg border border-slate-200 hover:border-${action.color}-300 hover:bg-${action.color}-50 transition-all hover:shadow-md`}
             data-testid={`button-${action.testId}`}
           >
             <div className="flex items-center space-x-3">
-              <div className={`w-8 h-8 bg-${action.color}-100 rounded-lg flex items-center justify-center`}>
+              <div className={`w-8 h-8 bg-gradient-to-br from-${action.color}-100 to-${action.color}-200 rounded-lg flex items-center justify-center`}>
                 <i className={`${action.icon} text-${action.color}-600 text-sm`}></i>
               </div>
               <div>
