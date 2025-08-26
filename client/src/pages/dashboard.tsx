@@ -42,38 +42,53 @@ export default function Dashboard() {
   };
 
   return (
-    <main className="flex-1 overflow-auto">
+    <main className="flex-1 overflow-auto bg-slate-50">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-800">Dashboard</h2>
-            <p className="text-slate-500 mt-1">Real-time monitoring and control center</p>
+      <header className="bg-white border-b border-slate-200">
+        <div className="px-6 py-6">
+          {/* Title Section */}
+          <div className="mb-6">
+            <h2 className="text-3xl font-bold text-slate-800 mb-2">Dashboard</h2>
+            <p className="text-base text-slate-600">Real-time monitoring and control center for medical lien automation</p>
           </div>
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-slate-600">From:</label>
-              <Input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                max={toDate}
-                className="w-40"
-                data-testid="input-from-date"
-              />
-              <label className="text-sm font-medium text-slate-600">To:</label>
-              <Input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                min={fromDate}
-                className="w-40"
-                data-testid="input-to-date"
-              />
+          
+          {/* Date Range Controls */}
+          <div className="flex flex-wrap items-center gap-4 bg-slate-50 rounded-lg p-4">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <label htmlFor="from-date" className="text-sm font-semibold text-slate-700 whitespace-nowrap">
+                  From Date:
+                </label>
+                <Input
+                  id="from-date"
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  max={toDate}
+                  className="w-44 bg-white"
+                  data-testid="input-from-date"
+                />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <label htmlFor="to-date" className="text-sm font-semibold text-slate-700 whitespace-nowrap">
+                  To Date:
+                </label>
+                <Input
+                  id="to-date"
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  min={fromDate}
+                  className="w-44 bg-white"
+                  data-testid="input-to-date"
+                />
+              </div>
             </div>
+            
             <Button 
               onClick={handleManualTrigger}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-5 py-2.5 rounded-lg font-medium flex items-center space-x-2 shadow-lg shadow-blue-500/25 transition-all hover:shadow-xl hover:shadow-blue-500/30"
+              className="ml-auto bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-5 py-2.5 rounded-lg font-medium flex items-center space-x-2 shadow-lg shadow-blue-500/25 transition-all hover:shadow-xl hover:shadow-blue-500/30"
               data-testid="button-run-now"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
