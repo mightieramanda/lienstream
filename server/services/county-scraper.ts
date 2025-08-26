@@ -36,7 +36,7 @@ interface ScrapedLien {
 export abstract class CountyScraper {
   constructor(protected county: County, protected config: CountyConfig) {}
 
-  abstract scrapeCountyLiens(searchDate?: string): Promise<ScrapedLien[]>;
+  abstract scrapeCountyLiens(fromDate?: string, toDate?: string): Promise<ScrapedLien[]>;
 
   async scrapeLiens(): Promise<Lien[]> {
     const scrapedLiens = await this.scrapeCountyLiens();
@@ -159,7 +159,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
     }
   }
 
-  async scrapeCountyLiens(searchDate?: string): Promise<ScrapedLien[]> {
+  async scrapeCountyLiens(fromDate?: string, toDate?: string): Promise<ScrapedLien[]> {
     if (!this.browser) {
       await this.initialize();
     }
@@ -172,16 +172,9 @@ export class PuppeteerCountyScraper extends CountyScraper {
     try {
       await Logger.info(`Starting lien scraping for ${this.county.name}`, 'county-scraper');
 
-      // Use provided search date or default to today
-      let dateToSearch = new Date();
-      if (searchDate) {
-        // Parse the searchDate string (expects MM/DD/YYYY format)
-        const [month, day, year] = searchDate.split('/').map(s => parseInt(s));
-        dateToSearch = new Date(year, month - 1, day);
-      }
-      
-      const startDate = dateToSearch;
-      const endDate = dateToSearch;
+      // Use provided date range or default to today
+      const startDate = fromDate ? new Date(fromDate) : new Date();
+      const endDate = toDate ? new Date(toDate) : startDate;
       
       const startMonth = startDate.getMonth() + 1;
       const startDay = startDate.getDate();
@@ -328,7 +321,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
       await Logger.success(`✅ Collected ${allRecordingNumbers.length} total recording numbers from ${pageNum} pages`, 'county-scraper');
 
       // Only add the user's example if no recordings found (for testing)
-      if (allRecordingNumbers.length === 0 && searchDate && searchDate.startsWith('8/20/2025')) {
+      if (allRecordingNumbers.length === 0 && fromDate && fromDate.includes('2025-08-20')) {
         // User provided this as an example of accessible PDF from Aug 20, 2025
         allRecordingNumbers.push('20250479507');
         await Logger.info(`🔍 No recordings found in search. Added user's example 20250479507 for testing`, 'county-scraper');

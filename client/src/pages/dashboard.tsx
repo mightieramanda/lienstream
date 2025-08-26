@@ -10,14 +10,16 @@ import { useState } from "react";
 
 export default function Dashboard() {
   const { toast } = useToast();
-  const [searchDate, setSearchDate] = useState(new Date().toISOString().split('T')[0]);
+  const today = new Date().toISOString().split('T')[0];
+  const [fromDate, setFromDate] = useState(today);
+  const [toDate, setToDate] = useState(today);
 
   const handleManualTrigger = async () => {
     try {
       const response = await fetch('/api/automation/trigger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ searchDate })
+        body: JSON.stringify({ fromDate, toDate })
       });
       
       if (!response.ok) {
@@ -27,7 +29,7 @@ export default function Dashboard() {
       
       toast({
         title: "Automation Started",
-        description: `Searching for liens from ${searchDate}`,
+        description: `Searching for liens from ${fromDate} to ${toDate}`,
       });
     } catch (error) {
       toast({
@@ -49,13 +51,23 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-slate-600">Date:</label>
+              <label className="text-sm font-medium text-slate-600">From:</label>
               <Input
                 type="date"
-                value={searchDate}
-                onChange={(e) => setSearchDate(e.target.value)}
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                max={toDate}
                 className="w-40"
-                data-testid="input-search-date"
+                data-testid="input-from-date"
+              />
+              <label className="text-sm font-medium text-slate-600">To:</label>
+              <Input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                min={fromDate}
+                className="w-40"
+                data-testid="input-to-date"
               />
             </div>
             <Button 

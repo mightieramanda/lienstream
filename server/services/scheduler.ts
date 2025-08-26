@@ -21,7 +21,7 @@ export class SchedulerService {
     await Logger.info('Scheduler started - daily runs at 6:00 AM', 'scheduler');
   }
 
-  async runAutomation(type: 'scheduled' | 'manual', searchDate?: string): Promise<void> {
+  async runAutomation(type: 'scheduled' | 'manual', fromDate?: string, toDate?: string): Promise<void> {
     if (this.isRunning) {
       await Logger.warning('Automation already running, skipping', 'scheduler');
       return;
@@ -33,7 +33,7 @@ export class SchedulerService {
       type,
       status: 'running',
       startTime: new Date(),
-      metadata: JSON.stringify({ startedBy: type, searchDate })
+      metadata: JSON.stringify({ startedBy: type, fromDate, toDate })
     });
 
     try {
@@ -72,10 +72,11 @@ export class SchedulerService {
           });
 
           // Create appropriate scraper for this county
+          const countyConfigData = county.config as any || {};
           const countyConfig = {
-            url: county.websiteUrl || 'https://legacy.recorder.maricopa.gov',
-            searchUrl: 'https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataRecentPgDn.aspx',
-            selectors: {}
+            url: countyConfigData.baseUrl || 'https://legacy.recorder.maricopa.gov',
+            searchUrl: countyConfigData.searchUrl || 'https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataRecentPgDn.aspx',
+            selectors: countyConfigData.selectors || {}
           };
           
           // Convert county to expected format for scraper
@@ -83,10 +84,10 @@ export class SchedulerService {
             id: county.id,
             name: county.name,
             state: county.state,
-            website: county.websiteUrl || 'https://legacy.recorder.maricopa.gov',
+            website: countyConfigData.baseUrl || 'https://legacy.recorder.maricopa.gov',
             scraperEnabled: county.isActive,
-            searchUrl: 'https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataRecentPgDn.aspx',
-            selectors: {}
+            searchUrl: countyConfigData.searchUrl || 'https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataRecentPgDn.aspx',
+            selectors: countyConfigData.selectors || {}
           };
           
           const scraper = createCountyScraper(scrapingCounty, countyConfig) as PuppeteerCountyScraper;
@@ -95,7 +96,7 @@ export class SchedulerService {
           // Initialize the scraper
           await scraper.initialize();
 
-          const scrapedLiens = await scraper.scrapeCountyLiens(searchDate);
+          const scrapedLiens = await scraper.scrapeCountyLiens(fromDate, toDate);
           
           if (scrapedLiens.length > 0) {
             totalLiensFound += scrapedLiens.length;
