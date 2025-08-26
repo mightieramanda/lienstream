@@ -3,6 +3,7 @@ import { AutomationStatus } from "@/components/automation-status";
 import { QuickActions } from "@/components/quick-actions";
 import { RecentLiensTable } from "@/components/recent-liens-table";
 import { SystemLogs } from "@/components/system-logs";
+import { ScheduleSettings } from "@/components/schedule-settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -93,6 +94,9 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Automation Status */}
           <AutomationStatus />
+          
+          {/* Schedule Settings */}
+          <ScheduleSettings />
           
           {/* Quick Actions */}
           <QuickActions />

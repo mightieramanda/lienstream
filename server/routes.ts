@@ -108,6 +108,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Schedule management routes
+  app.get("/api/automation/schedule", async (req, res) => {
+    try {
+      const scheduleInfo = scheduler.getScheduleInfo();
+      res.json(scheduleInfo);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch schedule" });
+    }
+  });
+
+  app.post("/api/automation/schedule", async (req, res) => {
+    try {
+      const { hour, minute } = req.body;
+      
+      if (typeof hour !== 'number' || typeof minute !== 'number') {
+        return res.status(400).json({ error: "Invalid schedule time" });
+      }
+      
+      if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+        return res.status(400).json({ error: "Invalid time values" });
+      }
+      
+      await scheduler.updateSchedule(hour, minute);
+      const scheduleInfo = scheduler.getScheduleInfo();
+      res.json(scheduleInfo);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update schedule" });
+    }
+  });
+
   // County management routes
   app.get("/api/counties", async (req, res) => {
     try {

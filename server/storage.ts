@@ -15,6 +15,10 @@ import {
 import { randomUUID } from "crypto";
 
 export interface IStorage {
+  // Schedule configuration
+  getScheduleConfig(): Promise<{ cronExpression: string; hour: number; minute: number; updatedAt: Date } | null>;
+  saveScheduleConfig(config: { cronExpression: string; hour: number; minute: number; updatedAt: Date }): Promise<void>;
+  
   // User methods
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -69,6 +73,7 @@ export class MemStorage implements IStorage {
   private systemLogs: Map<string, SystemLog>;
   private counties: Map<string, County>;
   private countyRuns: Map<string, CountyRun>;
+  private scheduleConfig: { cronExpression: string; hour: number; minute: number; updatedAt: Date } | null = null;
 
   constructor() {
     this.users = new Map();
@@ -80,6 +85,15 @@ export class MemStorage implements IStorage {
     
     // Initialize with Arizona counties by default
     this.initializeDefaultCounties();
+  }
+
+  // Schedule configuration
+  async getScheduleConfig(): Promise<{ cronExpression: string; hour: number; minute: number; updatedAt: Date } | null> {
+    return this.scheduleConfig;
+  }
+
+  async saveScheduleConfig(config: { cronExpression: string; hour: number; minute: number; updatedAt: Date }): Promise<void> {
+    this.scheduleConfig = config;
   }
 
   private initializeDefaultCounties() {

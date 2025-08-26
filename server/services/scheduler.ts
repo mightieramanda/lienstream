@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import * as cron from 'node-cron';
 import { AirtableService } from './airtable';
 import { Logger } from './logger';
 import { createCountyScraper, PuppeteerCountyScraper } from './county-scraper';
@@ -7,18 +7,87 @@ import { storage } from '../storage';
 export class SchedulerService {
   private airtableService: AirtableService;
   private isRunning = false;
+  private scheduledTask: any | null = null;
+  private currentSchedule = '0 6 * * *'; // Default: 6:00 AM daily
 
   constructor() {
     this.airtableService = new AirtableService();
   }
 
   async start() {
-    // Schedule daily run at 6:00 AM
-    cron.schedule('0 6 * * *', async () => {
+    // Load saved schedule if exists
+    const savedSchedule = await storage.getScheduleConfig();
+    if (savedSchedule) {
+      this.currentSchedule = savedSchedule.cronExpression;
+    }
+
+    // Schedule the task
+    this.scheduleTask();
+    
+    const scheduleTime = this.getHumanReadableSchedule();
+    await Logger.info(`Scheduler started - ${scheduleTime}`, 'scheduler');
+  }
+
+  private scheduleTask() {
+    // Stop existing task if any
+    if (this.scheduledTask) {
+      this.scheduledTask.stop();
+    }
+
+    // Create new scheduled task
+    this.scheduledTask = cron.schedule(this.currentSchedule, async () => {
       await this.runAutomation('scheduled');
     });
+  }
 
-    await Logger.info('Scheduler started - daily runs at 6:00 AM', 'scheduler');
+  async updateSchedule(hour: number, minute: number): Promise<void> {
+    // Create cron expression (minute hour * * *)
+    const cronExpression = `${minute} ${hour} * * *`;
+    
+    // Validate cron expression
+    if (!cron.validate(cronExpression)) {
+      throw new Error('Invalid schedule time');
+    }
+
+    // Update the schedule
+    this.currentSchedule = cronExpression;
+    
+    // Save to storage
+    await storage.saveScheduleConfig({ 
+      cronExpression,
+      hour,
+      minute,
+      updatedAt: new Date()
+    });
+
+    // Reschedule the task
+    this.scheduleTask();
+    
+    const scheduleTime = this.getHumanReadableSchedule();
+    await Logger.info(`Schedule updated to ${scheduleTime}`, 'scheduler');
+  }
+
+  getScheduleInfo(): { cronExpression: string; hour: number; minute: number; humanReadable: string } {
+    // Parse the cron expression to get hour and minute
+    const parts = this.currentSchedule.split(' ');
+    const minute = parseInt(parts[0]);
+    const hour = parseInt(parts[1]);
+    
+    return {
+      cronExpression: this.currentSchedule,
+      hour,
+      minute,
+      humanReadable: this.getHumanReadableSchedule()
+    };
+  }
+
+  private getHumanReadableSchedule(): string {
+    const parts = this.currentSchedule.split(' ');
+    const minute = parseInt(parts[0]);
+    const hour = parseInt(parts[1]);
+    
+    const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+    return `daily runs at ${timeStr}`;
   }
 
   async runAutomation(type: 'scheduled' | 'manual', fromDate?: string, toDate?: string): Promise<void> {
