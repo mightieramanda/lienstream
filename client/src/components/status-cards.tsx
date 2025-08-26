@@ -82,31 +82,61 @@ export function StatusCards() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-      {cards.map((card, index) => (
-        <div key={index} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6" data-testid={`card-${card.label.toLowerCase().replace(/\s+/g, '-')}`}>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-500 text-sm font-medium" data-testid={`text-${card.label.toLowerCase().replace(/\s+/g, '-')}-label`}>
-                {card.label}
-              </p>
-              <p className="text-2xl font-bold text-slate-800 mt-1" data-testid={`text-${card.label.toLowerCase().replace(/\s+/g, '-')}-value`}>
-                {card.value}
-              </p>
+      {cards.map((card, index) => {
+        const bgGradients = {
+          emerald: "from-emerald-500 to-emerald-600",
+          blue: "from-blue-500 to-blue-600", 
+          amber: "from-amber-500 to-amber-600",
+          purple: "from-purple-500 to-purple-600"
+        };
+        
+        const iconBg = {
+          emerald: "bg-emerald-50",
+          blue: "bg-blue-50",
+          amber: "bg-amber-50",
+          purple: "bg-purple-50"
+        };
+        
+        const iconColors = {
+          emerald: "text-emerald-600",
+          blue: "text-blue-600",
+          amber: "text-amber-600",
+          purple: "text-purple-600"
+        };
+
+        const statusColors = {
+          emerald: "text-emerald-700 bg-emerald-50",
+          blue: "text-blue-700 bg-blue-50",
+          amber: "text-amber-700 bg-amber-50",
+          purple: "text-purple-700 bg-purple-50"
+        };
+        
+        return (
+          <div key={index} className="relative bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow border border-slate-100 p-6 overflow-hidden group" data-testid={`card-${card.label.toLowerCase().replace(/\s+/g, '-')}`}>
+            {/* Gradient accent bar */}
+            <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${bgGradients[card.color as keyof typeof bgGradients]}`}></div>
+            
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-slate-600 text-sm font-semibold tracking-wide uppercase" data-testid={`text-${card.label.toLowerCase().replace(/\s+/g, '-')}-label`}>
+                  {card.label}
+                </p>
+                <p className="text-3xl font-bold text-slate-900" data-testid={`text-${card.label.toLowerCase().replace(/\s+/g, '-')}-value`}>
+                  {card.value.toLocaleString()}
+                </p>
+              </div>
+              <div className={`w-14 h-14 ${iconBg[card.color as keyof typeof iconBg]} rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                <i className={`${card.icon} text-lg ${iconColors[card.color as keyof typeof iconColors]}`}></i>
+              </div>
             </div>
-            <div className={`w-12 h-12 bg-gradient-to-br from-${card.color}-100 to-${card.color}-200 rounded-xl flex items-center justify-center shadow-sm`}>
-              <i className={`${card.icon} text-${card.color}-700`}></i>
+            <div className="mt-4">
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[card.color as keyof typeof statusColors]}`} data-testid={`text-${card.label.toLowerCase().replace(/\s+/g, '-')}-change`}>
+                {card.change} {card.changeLabel}
+              </span>
             </div>
           </div>
-          <div className="flex items-center mt-4">
-            <span className={`text-${card.color}-600 text-sm font-medium`} data-testid={`text-${card.label.toLowerCase().replace(/\s+/g, '-')}-change`}>
-              {card.change}
-            </span>
-            <span className="text-slate-500 text-sm ml-2">
-              {card.changeLabel}
-            </span>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -6,6 +6,13 @@ LienStream is a medical lien automation platform that scrapes, processes, and ma
 
 Preferred communication style: Simple, everyday language.
 
+## UI/UX Preferences
+- Collapsible sidebar for better space utilization
+- Logical dashboard organization: metrics → controls → activity → configuration
+- 12-hour time format with AM/PM selection
+- Timezone restrictions to PT, CT, and ET only
+- Visual section headers with color-coded indicators for better hierarchy
+
 # System Architecture
 
 ## Frontend Architecture

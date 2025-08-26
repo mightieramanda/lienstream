@@ -101,27 +101,46 @@ export default function Dashboard() {
       </header>
       
       {/* Dashboard Content */}
-      <div className="p-6 space-y-6">
-        {/* Status Cards */}
-        <StatusCards />
+      <div className="p-6 space-y-8">
+        {/* Section 1: Key Metrics - Most important info at the top */}
+        <section>
+          <StatusCards />
+        </section>
         
-        {/* Main Dashboard Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          {/* Automation Status */}
-          <AutomationStatus />
-          
-          {/* Schedule Settings */}
-          <ScheduleSettings />
-          
-          {/* Quick Actions */}
-          <QuickActions />
-        </div>
+        {/* Section 2: Automation Controls - Primary actions and status */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-8 w-1 bg-blue-600 rounded-full"></div>
+            <h3 className="text-lg font-semibold text-slate-800">Automation Controls</h3>
+          </div>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <AutomationStatus />
+            <QuickActions />
+          </div>
+        </section>
         
-        {/* Recent Liens Table */}
-        <RecentLiensTable />
+        {/* Section 3: Recent Activity - Important for monitoring */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-8 w-1 bg-green-600 rounded-full"></div>
+            <h3 className="text-lg font-semibold text-slate-800">Recent Activity</h3>
+          </div>
+          <RecentLiensTable />
+        </section>
         
-        {/* System Logs */}
-        <SystemLogs />
+        {/* Section 4: Configuration & Monitoring - Less frequently accessed */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-8 w-1 bg-purple-600 rounded-full"></div>
+            <h3 className="text-lg font-semibold text-slate-800">Configuration & Monitoring</h3>
+          </div>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <ScheduleSettings />
+            <div className="xl:col-span-1">
+              <SystemLogs />
+            </div>
+          </div>
+        </section>
       </div>
     </main>
   );
