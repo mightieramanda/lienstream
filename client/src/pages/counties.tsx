@@ -147,7 +147,7 @@ export default function Counties() {
       <main className="flex-1 overflow-auto">
         <header className="bg-white border-b border-slate-200 px-6 py-4">
           <h2 className="text-2xl font-bold text-slate-800">County Management</h2>
-          <p className="text-slate-500 mt-1">Configure and manage county-specific scraping settings</p>
+          <p className="text-slate-500 mt-1">Configure county settings for record scraping</p>
         </header>
         <div className="p-6">
           <div className="animate-pulse space-y-4">
@@ -166,7 +166,7 @@ export default function Counties() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-slate-800">County Management</h2>
-            <p className="text-slate-500 mt-1">Configure and manage county-specific scraping settings for nationwide scaling</p>
+            <p className="text-slate-500 mt-1">Configure and manage county settings</p>
           </div>
           <Button 
             onClick={() => setShowAddForm(!showAddForm)}
@@ -340,7 +340,7 @@ export default function Counties() {
                   <i className="fas fa-map text-slate-400 text-xl"></i>
                 </div>
                 <h3 className="text-lg font-medium text-slate-800 mb-2">No Counties Configured</h3>
-                <p className="text-slate-500 mb-4">Add your first county configuration to start scraping medical liens nationwide.</p>
+                <p className="text-slate-500 mb-4">Add your first county configuration to start scraping records.</p>
                 <Button onClick={() => setShowAddForm(true)}>
                   <i className="fas fa-plus mr-2"></i>
                   Add County

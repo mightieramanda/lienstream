@@ -91,34 +91,28 @@ export function AutomationStatus() {
 
   const pipelineSteps = [
     {
-      name: "Maricopa County Scraping",
+      name: "County Scraping",
       status: automationStatus.latestRun?.liensFound !== undefined ? "completed" : (automationStatus.isRunning ? "running" : "pending"),
       description: automationStatus.latestRun?.liensFound 
-        ? `Last run: ${new Date(automationStatus.latestRun.startTime).toLocaleDateString()} • ${automationStatus.latestRun.liensFound} liens found`
-        : automationStatus.isRunning ? "Scraping medical liens from Maricopa County..." : "Ready to scrape medical liens",
+        ? `Last run: ${new Date(automationStatus.latestRun.startTime).toLocaleDateString()} • ${automationStatus.latestRun.liensFound} records found`
+        : automationStatus.isRunning ? "Scraping records from county website..." : "Ready to scrape records",
       icon: automationStatus.latestRun?.liensFound !== undefined ? "fas fa-check" : (automationStatus.isRunning ? "fas fa-spinner fa-spin" : "fas fa-clock")
     },
     {
-      name: "Data Processing",
-      status: automationStatus.latestRun?.liensOver20k !== undefined ? "completed" : (automationStatus.isRunning ? "running" : "pending"),
-      description: automationStatus.latestRun?.liensOver20k 
-        ? `Filtered ${automationStatus.latestRun.liensOver20k} liens over $20,000`
-        : automationStatus.isRunning ? "Processing and filtering lien data..." : "Waiting for scraping completion",
-      icon: automationStatus.latestRun?.liensOver20k !== undefined ? "fas fa-check" : (automationStatus.isRunning ? "fas fa-spinner fa-spin" : "fas fa-clock")
+      name: "PDF Download",
+      status: automationStatus.latestRun?.liensProcessed !== undefined ? "completed" : (automationStatus.isRunning ? "running" : "pending"),
+      description: automationStatus.latestRun?.liensProcessed 
+        ? `Downloaded ${automationStatus.latestRun.liensProcessed} PDF documents`
+        : automationStatus.isRunning ? "Downloading PDF documents..." : "Waiting for scraping",
+      icon: automationStatus.latestRun?.liensProcessed !== undefined ? "fas fa-check" : (automationStatus.isRunning ? "fas fa-spinner fa-spin" : "fas fa-clock")
     },
     {
       name: "Airtable Sync",
       status: automationStatus.latestRun?.status === "completed" ? "completed" : (automationStatus.isRunning ? "pending" : "pending"),
       description: automationStatus.latestRun?.status === "completed" 
-        ? "Records synchronized to Airtable successfully"
-        : automationStatus.isRunning ? "Waiting for data processing..." : "Ready to sync processed data",
+        ? "Records and PDFs uploaded to Airtable"
+        : automationStatus.isRunning ? "Waiting to upload..." : "Ready to sync data",
       icon: automationStatus.latestRun?.status === "completed" ? "fas fa-check" : "fas fa-clock"
-    },
-    {
-      name: "Mailer Generation",
-      status: "pending",
-      description: "Auto-generate via Lob API",
-      icon: "fas fa-clock"
     }
   ];
 
@@ -177,7 +171,7 @@ export function AutomationStatus() {
                   }`}>
                     {step.description}
                   </p>
-                  {isRunning && step.name === "Data Processing" && (
+                  {isRunning && step.name === "PDF Download" && (
                     <div className="mt-2">
                       <div className="w-full bg-slate-200 rounded-full h-2">
                         <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{width: '49%'}}></div>

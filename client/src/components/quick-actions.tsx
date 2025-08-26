@@ -4,17 +4,35 @@ import { useToast } from "@/hooks/use-toast";
 export function QuickActions() {
   const { toast } = useToast();
 
-  const handleAirtableSync = () => {
-    toast({
-      title: "Airtable Sync",
-      description: "This feature will be implemented to manually sync pending records to Airtable.",
-    });
+  const handleAirtableSync = async () => {
+    try {
+      const response = await fetch('/api/automation/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to trigger sync');
+      }
+      
+      toast({
+        title: "Sync Started",
+        description: "Automation has been triggered to sync records to Airtable.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to start sync process.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleDownloadReport = () => {
+    window.open('/api/liens/export', '_blank');
     toast({
-      title: "Export Report",
-      description: "This feature will be implemented to export CSV/Excel reports of lien data.",
+      title: "Export Started",
+      description: "Downloading lien records as CSV.",
     });
   };
 
@@ -25,29 +43,30 @@ export function QuickActions() {
     });
   };
 
-  const handleConfigureSchedule = () => {
+  const handleRefresh = () => {
+    window.location.reload();
     toast({
-      title: "Schedule Settings",
-      description: "This feature will be implemented to configure automation scheduling.",
+      title: "Refreshing",
+      description: "Dashboard data is being refreshed.",
     });
   };
 
   const actions = [
     {
-      title: "Sync to Airtable",
-      description: "Push pending records",
-      icon: "fas fa-table",
+      title: "Run Automation",
+      description: "Start scraping process",
+      icon: "fas fa-play",
       color: "blue",
       onClick: handleAirtableSync,
-      testId: "sync-airtable"
+      testId: "run-automation"
     },
     {
-      title: "Export Report",
-      description: "Download CSV/Excel",
+      title: "Export Data",
+      description: "Download records",
       icon: "fas fa-download",
       color: "emerald",
       onClick: handleDownloadReport,
-      testId: "export-report"
+      testId: "export-data"
     },
     {
       title: "View Logs",
@@ -58,12 +77,12 @@ export function QuickActions() {
       testId: "view-logs"
     },
     {
-      title: "Schedule Settings",
-      description: "Configure automation",
-      icon: "fas fa-calendar",
+      title: "Refresh Data",
+      description: "Update dashboard",
+      icon: "fas fa-sync",
       color: "purple",
-      onClick: handleConfigureSchedule,
-      testId: "schedule-settings"
+      onClick: handleRefresh,
+      testId: "refresh-data"
     }
   ];
 

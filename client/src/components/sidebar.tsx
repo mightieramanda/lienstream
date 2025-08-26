@@ -6,12 +6,6 @@ export function Sidebar() {
   const menuItems = [
     { path: "/", icon: "fas fa-tachometer-alt", label: "Dashboard" },
     { path: "/counties", icon: "fas fa-map", label: "Counties" },
-    { path: "/liens", icon: "fas fa-database", label: "Lien Records" },
-    { path: "/automation", icon: "fas fa-robot", label: "Automation" },
-    { path: "/mailers", icon: "fas fa-envelope", label: "Mailers" },
-    { path: "/airtable", icon: "fas fa-table", label: "Airtable Sync" },
-    { path: "/analytics", icon: "fas fa-chart-line", label: "Analytics" },
-    { path: "/settings", icon: "fas fa-cog", label: "Settings" },
   ];
 
   return (
@@ -23,8 +17,8 @@ export function Sidebar() {
             <i className="fas fa-file-medical text-white text-sm"></i>
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-800">LienScape</h1>
-            <p className="text-xs text-slate-500">Automation Suite</p>
+            <h1 className="text-lg font-bold text-slate-800">Lien Automation</h1>
+            <p className="text-xs text-slate-500">Processing System</p>
           </div>
         </div>
       </div>

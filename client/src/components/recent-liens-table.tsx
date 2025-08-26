@@ -12,7 +12,7 @@ export function RecentLiensTable() {
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
         <div className="p-6 border-b border-slate-200">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-slate-800">Recent Liens</h3>
+            <h3 className="text-lg font-semibold text-slate-800">Recent Records</h3>
             <div className="animate-pulse h-4 bg-slate-200 rounded w-16"></div>
           </div>
         </div>
@@ -59,15 +59,15 @@ export function RecentLiensTable() {
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
         <div className="p-6 border-b border-slate-200">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-slate-800">Recent Liens</h3>
+            <h3 className="text-lg font-semibold text-slate-800">Recent Records</h3>
           </div>
         </div>
         <div className="p-12 text-center">
           <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <i className="fas fa-file-medical text-slate-400 text-xl"></i>
           </div>
-          <h4 className="text-lg font-medium text-slate-800 mb-2">No liens found</h4>
-          <p className="text-slate-500">No medical liens have been scraped yet. Run the automation to start collecting data.</p>
+          <h4 className="text-lg font-medium text-slate-800 mb-2">No records found</h4>
+          <p className="text-slate-500">No records have been scraped yet. Run the automation to start collecting data.</p>
         </div>
       </div>
     );
@@ -78,7 +78,6 @@ export function RecentLiensTable() {
       'pending': { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Pending' },
       'processing': { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Processing' },
       'synced': { bg: 'bg-emerald-100', text: 'text-emerald-800', label: 'Synced' },
-      'mailer_sent': { bg: 'bg-amber-100', text: 'text-amber-800', label: 'Mailer Sent' },
       'completed': { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Completed' },
     };
     
@@ -149,19 +148,21 @@ export function RecentLiensTable() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <div className="flex items-center space-x-2">
-                    <button 
-                      className="text-blue-600 hover:text-blue-700"
-                      data-testid={`button-view-details-${lien.recordingNumber}`}
-                    >
-                      <i className="fas fa-eye"></i>
-                    </button>
-                    <button 
-                      className={lien.status === 'synced' ? "text-emerald-600 hover:text-emerald-700" : "text-slate-400 cursor-not-allowed"}
-                      data-testid={`button-send-mailer-${lien.recordingNumber}`}
-                      disabled={lien.status !== 'synced'}
-                    >
-                      <i className="fas fa-envelope"></i>
-                    </button>
+                    {lien.pdfUrl && (
+                      <a 
+                        href={lien.pdfUrl}
+                        target="_blank"
+                        className="text-blue-600 hover:text-blue-700"
+                        data-testid={`link-view-pdf-${lien.recordingNumber}`}
+                      >
+                        <i className="fas fa-file-pdf"></i>
+                      </a>
+                    )}
+                    {!lien.pdfUrl && (
+                      <span className="text-slate-400">
+                        <i className="fas fa-file-pdf"></i>
+                      </span>
+                    )}
                   </div>
                 </td>
               </tr>

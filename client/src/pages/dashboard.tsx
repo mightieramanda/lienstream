@@ -40,8 +40,8 @@ export default function Dashboard() {
       <header className="bg-white border-b border-slate-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-slate-800">Automation Dashboard</h2>
-            <p className="text-slate-500 mt-1">Monitor and manage your medical lien automation pipeline</p>
+            <h2 className="text-2xl font-bold text-slate-800">Dashboard</h2>
+            <p className="text-slate-500 mt-1">Monitor lien records and automation status</p>
           </div>
           <div className="flex items-center space-x-3">
             <Button 
@@ -53,14 +53,6 @@ export default function Dashboard() {
               <span>Run Now</span>
             </Button>
             
-            <Button 
-              variant="secondary"
-              className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-lg font-medium flex items-center space-x-2"
-              data-testid="button-settings"
-            >
-              <i className="fas fa-cog text-sm"></i>
-              <span>Settings</span>
-            </Button>
           </div>
         </div>
       </header>

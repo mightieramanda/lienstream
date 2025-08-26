@@ -3,8 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 interface DashboardStats {
   todaysLiens: number;
   airtableSynced: number;
-  mailersSent: number;
-  activeLeads: number;
+  totalProcessed: number;
+  pendingSync: number;
 }
 
 export function StatusCards() {
@@ -47,36 +47,36 @@ export function StatusCards() {
 
   const cards = [
     {
-      label: "Today's Liens",
+      label: "Records Found",
       value: stats.todaysLiens,
       icon: "fas fa-file-medical",
       color: "emerald",
-      change: "+12%",
-      changeLabel: "vs yesterday"
+      change: stats.todaysLiens > 0 ? "Active" : "No activity",
+      changeLabel: "today"
     },
     {
-      label: "Airtable Synced",
+      label: "Synced to Airtable",
       value: stats.airtableSynced,
       icon: "fas fa-sync",
       color: "blue",
-      change: stats.airtableSynced > 0 ? "95.7%" : "0%",
-      changeLabel: "success rate"
+      change: stats.airtableSynced > 0 ? "Synced" : "Pending",
+      changeLabel: "status"
     },
     {
-      label: "Mailers Sent",
-      value: stats.mailersSent,
-      icon: "fas fa-envelope",
+      label: "Total Processed",
+      value: stats.totalProcessed || stats.todaysLiens,
+      icon: "fas fa-database",
       color: "amber",
-      change: "$892",
-      changeLabel: "total cost"
+      change: "All time",
+      changeLabel: "records"
     },
     {
-      label: "Active Leads",
-      value: stats.activeLeads,
-      icon: "fas fa-phone",
+      label: "PDFs Downloaded",
+      value: stats.todaysLiens,
+      icon: "fas fa-download",
       color: "purple",
-      change: "31",
-      changeLabel: "with phone #"
+      change: "Complete",
+      changeLabel: "with PDFs"
     }
   ];
 
