@@ -38,9 +38,6 @@ export class AirtableService {
 
     try {
       await Logger.info(`Starting Airtable sync for ${liens.length} liens to base: ${this.baseId}, table: ${this.tableId}`, 'airtable');
-
-      // Generate batch ID for this scrape session
-      const batchId = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
       
       // Get base URL for serving PDFs
       const baseUrl = process.env.REPLIT_DEV_DOMAIN ? 
@@ -73,16 +70,13 @@ export class AirtableService {
         
         // Convert recording number to number
         const recordNumber = parseInt(lien.recordingNumber, 10);
-        Logger.info(`Converting recording number: "${lien.recordingNumber}" to ${recordNumber} (type: ${typeof recordNumber}, value check: ${!isNaN(recordNumber)})`, 'airtable');
         
         return {
           fields: {
             'Status': 'New',
             'County Name': countyName,
             'Record Number': recordNumber, // Convert to number for Airtable number field
-            'Recorded Date/Time': lien.recordingDate ? new Date(lien.recordingDate).toISOString() : new Date().toISOString(),
-            'PDF Link': pdfAttachment, // Now an attachment field
-            'Scrape Batch ID': batchId
+            'PDF Link': pdfAttachment // Now an attachment field
           }
         };
       });
