@@ -1,9 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { SystemLog } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
 
 export function SystemLogs() {
-  const { data: logs, isLoading } = useQuery<SystemLog[]>({
-    queryKey: ['/api/logs'],
+  const [logDate, setLogDate] = useState('');
+  const [viewMode, setViewMode] = useState<'all' | 'date'>('all');
+  
+  const queryKey = viewMode === 'date' && logDate 
+    ? [`/api/logs?date=${logDate}`] 
+    : ['/api/logs'];
+    
+  const { data: logs, isLoading, refetch } = useQuery<SystemLog[]>({
+    queryKey,
     refetchInterval: 10000, // Refresh every 10 seconds
   });
 
@@ -89,12 +99,35 @@ export function SystemLogs() {
       <div className="p-6 border-b border-slate-200">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-slate-800">System Activity</h3>
-          <button 
-            className="text-slate-400 hover:text-slate-600" 
-            data-testid="button-refresh-logs"
-          >
-            <i className="fas fa-sync-alt"></i>
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <Button 
+                size="sm" 
+                variant={viewMode === 'all' ? 'default' : 'outline'}
+                onClick={() => { setViewMode('all'); setLogDate(''); }}
+                data-testid="button-view-all-logs"
+              >
+                All Logs
+              </Button>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={logDate}
+                  onChange={(e) => { setLogDate(e.target.value); setViewMode('date'); }}
+                  className="w-36 h-8 text-sm"
+                  placeholder="Select date"
+                  data-testid="input-log-date"
+                />
+              </div>
+            </div>
+            <button 
+              className="text-slate-400 hover:text-slate-600" 
+              onClick={() => refetch()}
+              data-testid="button-refresh-logs"
+            >
+              <i className="fas fa-sync-alt"></i>
+            </button>
+          </div>
         </div>
       </div>
       <div className="p-6">

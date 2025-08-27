@@ -1,11 +1,54 @@
 import { useQuery } from "@tanstack/react-query";
 import { Lien } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function RecentLiensTable() {
   const { data: liens, isLoading } = useQuery<Lien[]>({
     queryKey: ['/api/liens/recent'],
     refetchInterval: 30000, // Refresh every 30 seconds
   });
+  const { toast } = useToast();
+  const [exportFromDate, setExportFromDate] = useState('');
+  const [exportToDate, setExportToDate] = useState('');
+  const [showDateRange, setShowDateRange] = useState(false);
+  
+  const handleExport = (type: 'all' | 'range') => {
+    if (type === 'range' && (!exportFromDate || !exportToDate)) {
+      toast({
+        title: "Date Range Required",
+        description: "Please select both start and end dates for export.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const params = new URLSearchParams();
+    if (type === 'range') {
+      params.append('from', exportFromDate);
+      params.append('to', exportToDate);
+    }
+    
+    const url = `/api/liens/export${params.toString() ? '?' + params.toString() : ''}`;
+    window.open(url, '_blank');
+    
+    toast({
+      title: "Export Started",
+      description: type === 'all' ? "Downloading all lien records as CSV." : `Downloading liens from ${exportFromDate} to ${exportToDate}`,
+    });
+    
+    setShowDateRange(false);
+    setExportFromDate('');
+    setExportToDate('');
+  };
 
   if (isLoading) {
     return (
@@ -60,6 +103,22 @@ export function RecentLiensTable() {
         <div className="p-6 border-b border-slate-200">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-slate-800">Recent Records</h3>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" data-testid="button-export-menu">
+                  <i className="fas fa-download mr-2"></i>
+                  Export Data
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleExport('all')}>
+                  Export All Records
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowDateRange(true)}>
+                  Export Date Range
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
         <div className="p-12 text-center">
@@ -104,9 +163,61 @@ export function RecentLiensTable() {
       <div className="p-6 border-b border-slate-200">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-slate-800">Recent Liens</h3>
-          <a href="#" className="text-blue-600 hover:text-blue-700 text-sm font-medium" data-testid="link-view-all">
-            View All
-          </a>
+          <div className="flex items-center gap-2">
+            {showDateRange && (
+              <div className="flex items-center gap-2 mr-2 animate-in slide-in-from-right">
+                <Input
+                  type="date"
+                  value={exportFromDate}
+                  onChange={(e) => setExportFromDate(e.target.value)}
+                  className="w-36 h-8 text-sm"
+                  placeholder="From"
+                />
+                <span className="text-slate-500">to</span>
+                <Input
+                  type="date"
+                  value={exportToDate}
+                  onChange={(e) => setExportToDate(e.target.value)}
+                  className="w-36 h-8 text-sm"
+                  placeholder="To"
+                />
+                <Button 
+                  size="sm" 
+                  variant="default"
+                  onClick={() => handleExport('range')}
+                  data-testid="button-export-range"
+                >
+                  Export
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  onClick={() => {setShowDateRange(false); setExportFromDate(''); setExportToDate('');}}
+                  data-testid="button-cancel-range"
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+            {!showDateRange && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" data-testid="button-export-menu">
+                    <i className="fas fa-download mr-2"></i>
+                    Export Data
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleExport('all')}>
+                    Export All Records
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowDateRange(true)}>
+                    Export Date Range
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -148,9 +259,9 @@ export function RecentLiensTable() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <div className="flex items-center space-x-2">
-                    {lien.pdfUrl && (
+                    {lien.documentUrl && (
                       <a 
-                        href={lien.pdfUrl}
+                        href={lien.documentUrl}
                         target="_blank"
                         className="text-blue-600 hover:text-blue-700"
                         data-testid={`link-view-pdf-${lien.recordingNumber}`}
@@ -158,7 +269,7 @@ export function RecentLiensTable() {
                         <i className="fas fa-file-pdf"></i>
                       </a>
                     )}
-                    {!lien.pdfUrl && (
+                    {!lien.documentUrl && (
                       <span className="text-slate-400">
                         <i className="fas fa-file-pdf"></i>
                       </span>

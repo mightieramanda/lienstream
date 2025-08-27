@@ -1,6 +1,5 @@
 import { StatusCards } from "@/components/status-cards";
 import { AutomationStatus } from "@/components/automation-status";
-import { QuickActions } from "@/components/quick-actions";
 import { RecentLiensTable } from "@/components/recent-liens-table";
 import { SystemLogs } from "@/components/system-logs";
 import { ScheduleSettings } from "@/components/schedule-settings";
@@ -113,10 +112,7 @@ export default function Dashboard() {
             <div className="h-8 w-1 bg-blue-600 rounded-full"></div>
             <h3 className="text-lg font-semibold text-slate-800">Automation Controls</h3>
           </div>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <AutomationStatus />
-            <QuickActions />
-          </div>
+          <AutomationStatus />
         </section>
         
         {/* Section 3: Recent Activity - Important for monitoring */}
