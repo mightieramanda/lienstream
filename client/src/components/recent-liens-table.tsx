@@ -322,7 +322,10 @@ export function RecentLiensTable() {
                   {lien.recordingNumber}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 text-center" data-testid={`text-county-${lien.recordingNumber}`}>
-                  {lien.county || 'Maricopa County'}
+                  {lien.countyId === 'maricopa-az' ? 'Maricopa County' :
+                   lien.countyId === 'pima-az' ? 'Pima County' :
+                   lien.countyId === 'pinal-az' ? 'Pinal County' :
+                   'Maricopa County'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-center" data-testid={`sync-status-${lien.recordingNumber}`}>
                   {getStatusBadge(lien.status)}
@@ -332,7 +335,7 @@ export function RecentLiensTable() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => window.open(lien.documentUrl, '_blank')}
+                      onClick={() => window.open(`/api/liens/${lien.id}/pdf`, '_blank')}
                       className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                       data-testid={`button-view-pdf-${lien.recordingNumber}`}
                     >

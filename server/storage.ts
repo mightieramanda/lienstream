@@ -26,6 +26,7 @@ export interface IStorage {
   
   // Lien methods
   getLien(id: string): Promise<Lien | undefined>;
+  getLienById(id: string): Promise<Lien | undefined>;
   getLienByRecordingNumber(recordingNumber: string): Promise<Lien | undefined>;
   getLiensByStatus(status: string): Promise<Lien[]>;
   createLien(lien: InsertLien): Promise<Lien>;
@@ -245,6 +246,10 @@ export class MemStorage implements IStorage {
 
   // Lien methods
   async getLien(id: string): Promise<Lien | undefined> {
+    return this.liens.get(id);
+  }
+
+  async getLienById(id: string): Promise<Lien | undefined> {
     return this.liens.get(id);
   }
 

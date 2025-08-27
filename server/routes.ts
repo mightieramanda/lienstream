@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import { SchedulerService } from "./services/scheduler";
 import { Logger } from "./services/logger";
 import { pdfStorage } from "./services/pdf-storage";
+import * as fs from 'fs';
+import * as path from 'path';
 
 const scheduler = new SchedulerService();
 
@@ -457,6 +459,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       await Logger.error(`Test recording failed: ${error}`, 'test');
       res.status(500).json({ error: error instanceof Error ? error.message : 'Test failed' });
+    }
+  });
+
+  // Serve PDFs
+  app.get("/api/liens/:id/pdf", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const lien = await storage.getLienById(id);
+      
+      if (!lien) {
+        return res.status(404).json({ error: "Lien not found" });
+      }
+
+      // For test data, serve the test PDF
+      const pdfPath = path.join(process.cwd(), 'test_download.pdf');
+      
+      // Check if the file exists
+      if (!fs.existsSync(pdfPath)) {
+        return res.status(404).json({ error: "PDF not found" });
+      }
+
+      // Set appropriate headers
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="lien-${lien.recordingNumber}.pdf"`);
+      
+      // Stream the PDF file
+      const stream = fs.createReadStream(pdfPath);
+      stream.pipe(res);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to retrieve PDF" });
     }
   });
 
