@@ -103,7 +103,7 @@ export class MemStorage implements IStorage {
       id: maricopaId,
       name: "Maricopa County",
       state: "Arizona",
-      isActive: false,
+      isActive: true,
       config: {
         scrapeType: 'puppeteer',
         baseUrl: 'https://legacy.recorder.maricopa.gov',
