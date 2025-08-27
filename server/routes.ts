@@ -504,7 +504,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Lien not found" });
       }
 
-      // For test data, serve the test PDF
+      // Serve the actual PDF from the lien's documentUrl
+      if (lien.documentUrl) {
+        try {
+          console.log(`Fetching unique PDF for lien ${lien.recordingNumber} from: ${lien.documentUrl}`);
+          
+          // Fetch the actual PDF for this specific lien
+          const response = await fetch(lien.documentUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': 'application/pdf,*/*'
+            }
+          });
+          
+          if (response.ok) {
+            const buffer = await response.arrayBuffer();
+            
+            // Set appropriate headers with no caching to ensure unique PDFs
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `inline; filename="${lien.recordingNumber}.pdf"`);
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+            
+            return res.send(Buffer.from(buffer));
+          }
+        } catch (fetchError) {
+          console.error(`Failed to fetch PDF from URL for ${lien.recordingNumber}:`, fetchError);
+        }
+      }
+
+      // Fallback to test PDF if no documentUrl or fetch fails
       const pdfPath = path.join(process.cwd(), 'test_download.pdf');
       
       // Check if the file exists

@@ -315,11 +315,21 @@ export class MemStorage implements IStorage {
 
   async getTodaysLiensCount(): Promise<number> {
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0]; // Get today's date as YYYY-MM-DD
     
-    return Array.from(this.liens.values()).filter(
-      (lien) => lien.createdAt >= today
-    ).length;
+    // Count liens based on recordDate, not createdAt
+    // Also ensure no duplicates by using a Set of recording numbers
+    const uniqueRecordingNumbers = new Set<string>();
+    
+    Array.from(this.liens.values()).forEach(lien => {
+      // Check if recordDate matches today
+      const lienDateStr = new Date(lien.recordDate).toISOString().split('T')[0];
+      if (lienDateStr === todayStr) {
+        uniqueRecordingNumbers.add(lien.recordingNumber);
+      }
+    });
+    
+    return uniqueRecordingNumbers.size;
   }
 
   // Automation run methods
