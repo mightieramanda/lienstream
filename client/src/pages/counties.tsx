@@ -170,7 +170,8 @@ export default function Counties() {
           </div>
           <Button 
             onClick={() => setShowAddForm(!showAddForm)}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            variant="outline"
+            className={`flex items-center justify-center transition-all duration-200 ${showAddForm ? 'bg-blue-500 text-white border-blue-500' : 'hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:shadow-md'}`}
             data-testid="button-add-county"
           >
             <i className="fas fa-plus mr-2"></i>
@@ -251,12 +252,15 @@ export default function Counties() {
                     type="button" 
                     variant="outline" 
                     onClick={() => setShowAddForm(false)}
+                    className="transition-all duration-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
                   >
                     Cancel
                   </Button>
                   <Button 
                     type="submit" 
+                    variant="outline"
                     disabled={addCountyMutation.isPending}
+                    className="transition-all duration-200 bg-blue-500 text-white border-blue-500 hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-400 disabled:border-gray-200"
                   >
                     {addCountyMutation.isPending ? "Adding..." : "Add County"}
                   </Button>
@@ -296,6 +300,7 @@ export default function Counties() {
                             isActive: !county.isActive 
                           })}
                           disabled={toggleCountyMutation.isPending}
+                          className={`transition-all duration-200 ${county.isActive ? 'hover:bg-red-50 hover:text-red-600 hover:border-red-200' : 'hover:bg-green-50 hover:text-green-600 hover:border-green-200'}`}
                         >
                           {county.isActive ? "Disable" : "Enable"}
                         </Button>
@@ -341,7 +346,11 @@ export default function Counties() {
                 </div>
                 <h3 className="text-lg font-medium text-slate-800 mb-2">No Counties Configured</h3>
                 <p className="text-slate-500 mb-4">Add your first county configuration to start scraping records.</p>
-                <Button onClick={() => setShowAddForm(true)}>
+                <Button 
+                  onClick={() => setShowAddForm(true)}
+                  variant="outline"
+                  className="transition-all duration-200 hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:shadow-md"
+                >
                   <i className="fas fa-plus mr-2"></i>
                   Add County
                 </Button>

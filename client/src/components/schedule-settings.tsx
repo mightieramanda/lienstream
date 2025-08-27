@@ -182,10 +182,11 @@ export function ScheduleSettings() {
         <Button 
           onClick={handleUpdateSchedule}
           disabled={isLoading}
-          className="w-full"
+          variant="outline"
+          className="w-full flex items-center justify-center transition-all duration-200 hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:shadow-md"
           data-testid="button-update-schedule"
         >
-          {isLoading ? "Updating..." : "Update Schedule"}
+          <span>{isLoading ? "Updating..." : "Update Schedule"}</span>
         </Button>
       </CardContent>
     </Card>

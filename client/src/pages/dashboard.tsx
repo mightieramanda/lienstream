@@ -87,7 +87,8 @@ export default function Dashboard() {
             
             <Button 
               onClick={handleManualTrigger}
-              className="ml-auto bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-5 py-2.5 rounded-lg font-medium flex items-center space-x-2 shadow-lg shadow-blue-500/25 transition-all hover:shadow-xl hover:shadow-blue-500/30"
+              variant="outline"
+              className="ml-auto flex items-center justify-center gap-2 transition-all duration-200 hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:shadow-md"
               data-testid="button-run-now"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

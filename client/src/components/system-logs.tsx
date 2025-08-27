@@ -103,11 +103,12 @@ export function SystemLogs() {
             <div className="flex items-center gap-2">
               <Button 
                 size="sm" 
-                variant={viewMode === 'all' ? 'default' : 'outline'}
+                variant="outline"
+                className={`flex items-center justify-center transition-all duration-200 ${viewMode === 'all' ? 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600' : 'hover:bg-blue-500 hover:text-white hover:border-blue-500'}`}
                 onClick={() => { setViewMode('all'); setLogDate(''); }}
                 data-testid="button-view-all-logs"
               >
-                All Logs
+                <span>All Logs</span>
               </Button>
               <div className="flex items-center gap-2">
                 <Input
@@ -120,13 +121,15 @@ export function SystemLogs() {
                 />
               </div>
             </div>
-            <button 
-              className="text-slate-400 hover:text-slate-600" 
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex items-center justify-center w-9 h-9 transition-all duration-200 hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:rotate-180"
               onClick={() => refetch()}
               data-testid="button-refresh-logs"
             >
-              <i className="fas fa-sync-alt"></i>
-            </button>
+              <i className="fas fa-sync-alt transition-transform duration-300"></i>
+            </Button>
           </div>
         </div>
       </div>

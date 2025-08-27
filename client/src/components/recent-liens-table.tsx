@@ -107,7 +107,7 @@ export function RecentLiensTable() {
                 variant="outline" 
                 size="sm" 
                 onClick={handleExportAll}
-                className="flex items-center justify-center"
+                className="flex items-center justify-center transition-all duration-200 hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:shadow-md"
                 data-testid="button-export-all"
               >
                 <i className="fas fa-download mr-2"></i>
@@ -117,7 +117,7 @@ export function RecentLiensTable() {
                 variant="outline" 
                 size="sm" 
                 onClick={() => setShowDateRange(!showDateRange)}
-                className="flex items-center justify-center"
+                className={`flex items-center justify-center transition-all duration-200 ${showDateRange ? 'bg-blue-500 text-white border-blue-500' : 'hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:shadow-md'}`}
                 data-testid="button-toggle-date-range"
               >
                 <i className="fas fa-calendar mr-2"></i>
@@ -150,22 +150,23 @@ export function RecentLiensTable() {
                 </div>
                 <Button 
                   size="sm"
+                  variant="outline"
                   onClick={handleExportRange}
                   disabled={!exportFromDate || !exportToDate}
-                  className="flex items-center justify-center"
+                  className="flex items-center justify-center transition-all duration-200 bg-blue-500 text-white border-blue-500 hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-400 disabled:border-gray-200"
                   data-testid="button-export-range"
                 >
                   <span>Export Range</span>
                 </Button>
                 <Button 
                   size="sm"
-                  variant="ghost"
+                  variant="outline"
                   onClick={() => {
                     setShowDateRange(false);
                     setExportFromDate('');
                     setExportToDate('');
                   }}
-                  className="flex items-center justify-center"
+                  className="flex items-center justify-center transition-all duration-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
                   data-testid="button-cancel-range"
                 >
                   <span>Cancel</span>
@@ -221,7 +222,7 @@ export function RecentLiensTable() {
               variant="outline" 
               size="sm" 
               onClick={handleExportAll}
-              className="flex items-center justify-center"
+              className="flex items-center justify-center transition-all duration-200 hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:shadow-md"
               data-testid="button-export-all"
             >
               <i className="fas fa-download mr-2"></i>
@@ -231,7 +232,7 @@ export function RecentLiensTable() {
               variant="outline" 
               size="sm" 
               onClick={() => setShowDateRange(!showDateRange)}
-              className="flex items-center justify-center"
+              className={`flex items-center justify-center transition-all duration-200 ${showDateRange ? 'bg-blue-500 text-white border-blue-500' : 'hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:shadow-md'}`}
               data-testid="button-toggle-date-range"
             >
               <i className="fas fa-calendar mr-2"></i>
@@ -264,22 +265,23 @@ export function RecentLiensTable() {
               </div>
               <Button 
                 size="sm"
+                variant="outline"
                 onClick={handleExportRange}
                 disabled={!exportFromDate || !exportToDate}
-                className="flex items-center justify-center"
+                className="flex items-center justify-center transition-all duration-200 bg-blue-500 text-white border-blue-500 hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-400 disabled:border-gray-200"
                 data-testid="button-export-range"
               >
                 <span>Export Range</span>
               </Button>
               <Button 
                 size="sm"
-                variant="ghost"
+                variant="outline"
                 onClick={() => {
                   setShowDateRange(false);
                   setExportFromDate('');
                   setExportToDate('');
                 }}
-                className="flex items-center justify-center"
+                className="flex items-center justify-center transition-all duration-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
                 data-testid="button-cancel-range"
               >
                 <span>Cancel</span>
