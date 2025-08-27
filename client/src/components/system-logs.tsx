@@ -104,10 +104,11 @@ export function SystemLogs() {
               <Button 
                 size="sm" 
                 variant="outline"
-                className={`flex items-center justify-center transition-all duration-200 ${viewMode === 'all' ? 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600' : 'hover:bg-blue-500 hover:text-white hover:border-blue-500'}`}
+                className="flex items-center justify-center gap-2 transition-all duration-200 hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:shadow-md"
                 onClick={() => { setViewMode('all'); setLogDate(''); }}
                 data-testid="button-view-all-logs"
               >
+                <i className="fas fa-list mr-2"></i>
                 <span>All Logs</span>
               </Button>
               <div className="flex items-center gap-2">
