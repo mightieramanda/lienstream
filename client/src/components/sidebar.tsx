@@ -9,10 +9,21 @@ export function Sidebar() {
     const saved = localStorage.getItem("sidebar-collapsed");
     return saved === "true";
   });
+  const [hasInteracted, setHasInteracted] = useState(() => {
+    return localStorage.getItem("sidebar-toggle-clicked") === "true";
+  });
 
   useEffect(() => {
     localStorage.setItem("sidebar-collapsed", collapsed.toString());
   }, [collapsed]);
+
+  const handleToggle = () => {
+    setCollapsed(!collapsed);
+    if (!hasInteracted) {
+      setHasInteracted(true);
+      localStorage.setItem("sidebar-toggle-clicked", "true");
+    }
+  };
 
   const menuItems = [
     { path: "/", icon: "fas fa-tachometer-alt", label: "Dashboard" },
@@ -24,17 +35,31 @@ export function Sidebar() {
       "bg-white shadow-sm border-r border-slate-200 flex flex-col transition-all duration-300 relative",
       collapsed ? "w-20" : "w-64"
     )}>
-      {/* Toggle Button */}
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-8 z-50 w-6 h-6 bg-white border border-slate-200 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
-        data-testid="button-sidebar-toggle"
-      >
-        <i className={cn(
-          "fas text-xs text-slate-600",
-          collapsed ? "fa-chevron-right" : "fa-chevron-left"
-        )}></i>
-      </button>
+      {/* Toggle Button - Prominent Arrow Tab */}
+      <Tooltip delayDuration={0}>
+        <TooltipTrigger asChild>
+          <button
+            onClick={handleToggle}
+            className={cn(
+              "absolute -right-5 top-8 z-50 bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg hover:shadow-xl transition-all group",
+              "w-10 h-14 rounded-r-lg flex items-center justify-center",
+              "hover:from-blue-600 hover:to-blue-700 hover:-right-6",
+              "before:content-[''] before:absolute before:inset-0 before:rounded-r-lg before:bg-white/10 before:opacity-0 before:hover:opacity-100 before:transition-opacity",
+              !hasInteracted && "animate-pulse"
+            )}
+            data-testid="button-sidebar-toggle"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <i className={cn(
+              "fas text-lg font-bold transform transition-transform group-hover:scale-110",
+              collapsed ? "fa-angle-double-right" : "fa-angle-double-left"
+            )}></i>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side={collapsed ? "right" : "left"} className="font-medium">
+          <p>{collapsed ? "➤ Expand sidebar" : "◂ Collapse sidebar"}</p>
+        </TooltipContent>
+      </Tooltip>
 
       {/* Logo */}
       <div className={cn(
