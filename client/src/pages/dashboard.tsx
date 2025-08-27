@@ -7,12 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Dashboard() {
   const { toast } = useToast();
   const today = new Date().toISOString().split('T')[0];
   const [fromDate, setFromDate] = useState(today);
   const [toDate, setToDate] = useState(today);
+
+  // Query automation status to determine if it's running
+  const { data: automationStatus } = useQuery({
+    queryKey: ['/api/automation/status'],
+    refetchInterval: 5000, // Check every 5 seconds
+  });
 
   const handleManualTrigger = async () => {
     try {
@@ -35,6 +42,31 @@ export default function Dashboard() {
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to start automation",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleStopAutomation = async () => {
+    try {
+      const response = await fetch('/api/automation/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to stop automation');
+      }
+      
+      toast({
+        title: "Automation Stopped",
+        description: "The automation process is stopping...",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to stop automation",
         variant: "destructive"
       });
     }
@@ -85,16 +117,30 @@ export default function Dashboard() {
               </div>
             </div>
             
-            <Button 
-              onClick={handleManualTrigger}
-              className="ml-auto bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-5 py-2.5 rounded-lg font-medium flex items-center space-x-2 shadow-lg shadow-blue-500/25 transition-all hover:shadow-xl hover:shadow-blue-500/30"
-              data-testid="button-run-now"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              <span>Start Automation</span>
-            </Button>
+            {automationStatus?.isRunning ? (
+              <Button 
+                onClick={handleStopAutomation}
+                className="ml-auto bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-5 py-2.5 rounded-lg font-medium flex items-center space-x-2 shadow-lg shadow-red-500/25 transition-all hover:shadow-xl hover:shadow-red-500/30"
+                data-testid="button-stop-automation"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9h6v6H9V9z" />
+                </svg>
+                <span>Stop Automation</span>
+              </Button>
+            ) : (
+              <Button 
+                onClick={handleManualTrigger}
+                className="ml-auto bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-5 py-2.5 rounded-lg font-medium flex items-center space-x-2 shadow-lg shadow-blue-500/25 transition-all hover:shadow-xl hover:shadow-blue-500/30"
+                data-testid="button-run-now"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span>Start Automation</span>
+              </Button>
+            )}
           </div>
         </div>
       </header>

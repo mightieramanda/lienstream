@@ -57,6 +57,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Stop automation
+  app.post("/api/automation/stop", async (req, res) => {
+    try {
+      await scheduler.stopAutomation();
+      res.json({ message: "Automation stop requested" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to stop automation" });
+    }
+  });
+
   // Recent liens
   app.get("/api/liens/recent", async (req, res) => {
     try {

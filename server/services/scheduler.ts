@@ -10,6 +10,9 @@ export class SchedulerService {
   private scheduledTask: any | null = null;
   private currentSchedule = '0 6 * * *'; // Default: 6:00 AM daily
   private currentTimezone = 'PT'; // Default: Pacific Time
+  private currentScrapers: PuppeteerCountyScraper[] = [];
+  private currentRunId: string | null = null;
+  private shouldStop = false;
 
   constructor() {
     this.airtableService = new AirtableService();
@@ -102,6 +105,8 @@ export class SchedulerService {
     }
 
     this.isRunning = true;
+    this.shouldStop = false;
+    this.currentScrapers = [];
     
     const runId = await storage.createAutomationRun({
       type,
@@ -109,6 +114,8 @@ export class SchedulerService {
       startTime: new Date(),
       metadata: JSON.stringify({ startedBy: type, fromDate, toDate })
     });
+    
+    this.currentRunId = runId;
 
     try {
       await Logger.info(`Starting ${type} automation run`, 'scheduler', { runId });
@@ -133,6 +140,12 @@ export class SchedulerService {
 
       // Step 2: Scrape each county
       for (const county of activeCounties) {
+        // Check if stop was requested
+        if (this.shouldStop) {
+          await Logger.info('Stopping automation as requested', 'scheduler');
+          break;
+        }
+        
         try {
           await Logger.info(`Starting lien scraping for ${county.name}, ${county.state}`, 'scheduler');
           
@@ -166,6 +179,7 @@ export class SchedulerService {
           
           const scraper = createCountyScraper(scrapingCounty, countyConfig) as PuppeteerCountyScraper;
           allScrapers.push(scraper);
+          this.currentScrapers.push(scraper);
           
           // Initialize the scraper
           await scraper.initialize();
@@ -257,10 +271,55 @@ export class SchedulerService {
 
     } finally {
       this.isRunning = false;
+      this.shouldStop = false;
+      this.currentScrapers = [];
+      this.currentRunId = null;
     }
   }
 
   isAutomationRunning(): boolean {
     return this.isRunning;
+  }
+
+  async stopAutomation(): Promise<void> {
+    if (!this.isRunning) {
+      await Logger.warning('No automation running to stop', 'scheduler');
+      return;
+    }
+
+    this.shouldStop = true;
+    await Logger.info('Stop requested - stopping automation gracefully', 'scheduler');
+
+    // Close all scrapers
+    for (const scraper of this.currentScrapers) {
+      try {
+        if (scraper.cleanup) {
+          await scraper.cleanup();
+        }
+      } catch (error) {
+        await Logger.error(`Error closing scraper: ${error}`, 'scheduler');
+      }
+    }
+
+    // Update the current run status
+    if (this.currentRunId) {
+      await storage.updateAutomationRun(this.currentRunId, {
+        status: 'stopped',
+        endTime: new Date(),
+        errorMessage: 'Stopped by user'
+      });
+    }
+
+    // Reset state
+    this.isRunning = false;
+    this.shouldStop = false;
+    this.currentScrapers = [];
+    this.currentRunId = null;
+
+    await Logger.info('Automation stopped successfully', 'scheduler');
+  }
+
+  getAutomationStatus() {
+    return storage.getLatestAutomationRun();
   }
 }
