@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { SchedulerService } from "./services/scheduler";
 import { Logger } from "./services/logger";
 import { pdfStorage } from "./services/pdf-storage";
+import { AirtableService } from "./services/airtable";
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -308,6 +309,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.send(pdf.buffer);
     } catch (error) {
       res.status(500).json({ error: "Failed to serve PDF" });
+    }
+  });
+
+  // Retry sync for individual lien
+  app.post("/api/liens/:id/retry-sync", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const lien = await storage.getLienById(id);
+      
+      if (!lien) {
+        return res.status(404).json({ error: "Lien not found" });
+      }
+      
+      if (lien.status === 'synced') {
+        return res.status(400).json({ error: "Lien already synced" });
+      }
+      
+      // Initialize Airtable service
+      const airtableService = new AirtableService();
+      
+      // Sync this single lien
+      await airtableService.syncLiensToAirtable([lien]);
+      
+      // Update status
+      await storage.updateLienStatus(lien.recordingNumber, 'synced');
+      
+      await Logger.info(`Successfully retried sync for lien ${lien.recordingNumber}`, 'retry-sync');
+      res.json({ message: "Sync successful" });
+    } catch (error) {
+      await Logger.error(`Failed to retry sync: ${error}`, 'retry-sync');
+      res.status(500).json({ error: "Failed to sync to Airtable" });
     }
   });
 
