@@ -107,19 +107,21 @@ export function RecentLiensTable() {
                 variant="outline" 
                 size="sm" 
                 onClick={handleExportAll}
+                className="flex items-center justify-center"
                 data-testid="button-export-all"
               >
                 <i className="fas fa-download mr-2"></i>
-                Export All
+                <span>Export All</span>
               </Button>
               <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={() => setShowDateRange(!showDateRange)}
+                className="flex items-center justify-center"
                 data-testid="button-toggle-date-range"
               >
                 <i className="fas fa-calendar mr-2"></i>
-                Date Range
+                <span>Date Range</span>
               </Button>
             </div>
           </div>
@@ -150,9 +152,10 @@ export function RecentLiensTable() {
                   size="sm"
                   onClick={handleExportRange}
                   disabled={!exportFromDate || !exportToDate}
+                  className="flex items-center justify-center"
                   data-testid="button-export-range"
                 >
-                  Export Range
+                  <span>Export Range</span>
                 </Button>
                 <Button 
                   size="sm"
@@ -162,9 +165,10 @@ export function RecentLiensTable() {
                     setExportFromDate('');
                     setExportToDate('');
                   }}
+                  className="flex items-center justify-center"
                   data-testid="button-cancel-range"
                 >
-                  Cancel
+                  <span>Cancel</span>
                 </Button>
               </div>
             </div>
@@ -217,19 +221,21 @@ export function RecentLiensTable() {
               variant="outline" 
               size="sm" 
               onClick={handleExportAll}
+              className="flex items-center justify-center"
               data-testid="button-export-all"
             >
               <i className="fas fa-download mr-2"></i>
-              Export All
+              <span>Export All</span>
             </Button>
             <Button 
               variant="outline" 
               size="sm" 
               onClick={() => setShowDateRange(!showDateRange)}
+              className="flex items-center justify-center"
               data-testid="button-toggle-date-range"
             >
               <i className="fas fa-calendar mr-2"></i>
-              Date Range
+              <span>Date Range</span>
             </Button>
           </div>
         </div>
@@ -260,9 +266,10 @@ export function RecentLiensTable() {
                 size="sm"
                 onClick={handleExportRange}
                 disabled={!exportFromDate || !exportToDate}
+                className="flex items-center justify-center"
                 data-testid="button-export-range"
               >
-                Export Range
+                <span>Export Range</span>
               </Button>
               <Button 
                 size="sm"
@@ -272,9 +279,10 @@ export function RecentLiensTable() {
                   setExportFromDate('');
                   setExportToDate('');
                 }}
+                className="flex items-center justify-center"
                 data-testid="button-cancel-range"
               >
-                Cancel
+                <span>Cancel</span>
               </Button>
             </div>
           </div>
