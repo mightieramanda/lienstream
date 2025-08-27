@@ -91,18 +91,17 @@ export function Sidebar() {
               {collapsed ? (
                 <Tooltip delayDuration={0}>
                   <TooltipTrigger asChild>
-                    <Link href={item.path}>
-                      <a 
-                        className={cn(
-                          "flex items-center justify-center px-3 py-2 rounded-lg font-medium transition-colors",
-                          location === item.path 
-                            ? "bg-blue-50 text-blue-700" 
-                            : "text-slate-600 hover:bg-slate-50"
-                        )}
-                        data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-                      >
-                        <i className={`${item.icon} w-5`}></i>
-                      </a>
+                    <Link 
+                      href={item.path}
+                      className={cn(
+                        "flex items-center justify-center px-3 py-2 rounded-lg font-medium transition-colors",
+                        location === item.path 
+                          ? "bg-blue-50 text-blue-700" 
+                          : "text-slate-600 hover:bg-slate-50"
+                      )}
+                      data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                    >
+                      <i className={`${item.icon} w-5`}></i>
                     </Link>
                   </TooltipTrigger>
                   <TooltipContent side="right">
@@ -110,19 +109,18 @@ export function Sidebar() {
                   </TooltipContent>
                 </Tooltip>
               ) : (
-                <Link href={item.path}>
-                  <a 
-                    className={cn(
-                      "flex items-center space-x-3 px-3 py-2 rounded-lg font-medium transition-colors",
-                      location === item.path 
-                        ? "bg-blue-50 text-blue-700" 
-                        : "text-slate-600 hover:bg-slate-50"
-                    )}
-                    data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-                  >
-                    <i className={`${item.icon} w-5`}></i>
-                    <span>{item.label}</span>
-                  </a>
+                <Link 
+                  href={item.path}
+                  className={cn(
+                    "flex items-center space-x-3 px-3 py-2 rounded-lg font-medium transition-colors",
+                    location === item.path 
+                      ? "bg-blue-50 text-blue-700" 
+                      : "text-slate-600 hover:bg-slate-50"
+                  )}
+                  data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                >
+                  <i className={`${item.icon} w-5`}></i>
+                  <span>{item.label}</span>
                 </Link>
               )}
             </li>

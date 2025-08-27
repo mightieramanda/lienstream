@@ -31,6 +31,10 @@ interface ScrapedLien {
   recordingDate: Date;
   documentUrl: string;
   pdfBuffer?: Buffer;
+  grantor?: string;
+  grantee?: string;
+  address?: string;
+  amount?: number;
 }
 
 export abstract class CountyScraper {
@@ -475,70 +479,74 @@ export class PuppeteerCountyScraper extends CountyScraper {
           if (pdfPageLink) {
             await Logger.info(`📎 Found Pages column link: ${pdfPageLink}`, 'county-scraper');
             
-            // Navigate to the page link to get the actual PDF
-            const pdfResponse = await page.goto(pdfPageLink, { 
-              waitUntil: 'networkidle2',
-              timeout: 15000 
-            });
+            // Create a new page for PDF navigation to avoid detached frame errors
+            const pdfPage = await this.browser!.newPage();
             
-            // Wait a bit for the PDF to be generated/loaded
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            try {
+              // Navigate to the page link to get the actual PDF
+              const pdfResponse = await pdfPage.goto(pdfPageLink, { 
+                waitUntil: 'networkidle2',
+                timeout: 15000 
+              });
             
-            // Check if we need to reload (sometimes PDFs need a refresh to load)
-            let contentType = pdfResponse?.headers()['content-type'] || '';
-            let reloadAttempts = 0;
-            const maxReloads = 5;
-            
-            // Keep reloading until we get a PDF or hit max attempts
-            while (!contentType.includes('pdf') && reloadAttempts < maxReloads) {
-              reloadAttempts++;
-              await Logger.info(`🔄 Attempt ${reloadAttempts}/${maxReloads}: Got ${contentType || 'unknown'} response, refreshing to get PDF...`, 'county-scraper');
+              // Wait a bit for the PDF to be generated/loaded
+              await new Promise(resolve => setTimeout(resolve, 2000));
               
-              // Wait before reload (exponential backoff)
-              await new Promise(resolve => setTimeout(resolve, 1000 * reloadAttempts));
+              // Check if we need to reload (sometimes PDFs need a refresh to load)
+              let contentType = pdfResponse?.headers()['content-type'] || '';
+              let reloadAttempts = 0;
+              const maxReloads = 5;
               
-              // Reload the page
-              const reloadResponse = await page.reload({ waitUntil: 'networkidle2', timeout: 15000 });
-              
-              // Check if we have a PDF now
-              contentType = reloadResponse?.headers()['content-type'] || '';
-              
-              // Also check if the URL indicates a PDF
-              const currentUrl = page.url();
-              if (currentUrl.includes('.pdf')) {
-                // Try to get the actual response
-                const pageContent = await page.evaluate(() => {
-                  // Check if this is actually a PDF by looking at the document
-                  const isPdf = document.contentType === 'application/pdf' || 
-                                window.location.href.includes('.pdf');
-                  return {
-                    url: window.location.href,
-                    isPdf: isPdf,
-                    contentType: document.contentType,
-                    bodyText: document.body ? document.body.innerText.substring(0, 100) : ''
-                  };
-                });
+              // Keep reloading until we get a PDF or hit max attempts
+              while (!contentType.includes('pdf') && reloadAttempts < maxReloads) {
+                reloadAttempts++;
+                await Logger.info(`🔄 Attempt ${reloadAttempts}/${maxReloads}: Got ${contentType || 'unknown'} response, refreshing to get PDF...`, 'county-scraper');
                 
-                if (pageContent.isPdf || !pageContent.bodyText.includes('<!DOCTYPE')) {
-                  actualPdfUrl = currentUrl;
-                  await Logger.info(`✅ Successfully loaded PDF after ${reloadAttempts} reload(s): ${actualPdfUrl}`, 'county-scraper');
-                  contentType = 'application/pdf'; // Force it to be treated as PDF
+                // Wait before reload (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, 1000 * reloadAttempts));
+                
+                // Reload the page
+                const reloadResponse = await pdfPage.reload({ waitUntil: 'networkidle2', timeout: 15000 });
+                
+                // Check if we have a PDF now
+                contentType = reloadResponse?.headers()['content-type'] || '';
+                
+                // Also check if the URL indicates a PDF
+                const currentUrl = pdfPage.url();
+                if (currentUrl.includes('.pdf')) {
+                  // Try to get the actual response
+                  const pageContent = await pdfPage.evaluate(() => {
+                    // Check if this is actually a PDF by looking at the document
+                    const isPdf = document.contentType === 'application/pdf' || 
+                                  window.location.href.includes('.pdf');
+                    return {
+                      url: window.location.href,
+                      isPdf: isPdf,
+                      contentType: document.contentType,
+                      bodyText: document.body ? document.body.innerText.substring(0, 100) : ''
+                    };
+                  });
+                  
+                  if (pageContent.isPdf || !pageContent.bodyText.includes('<!DOCTYPE')) {
+                    actualPdfUrl = currentUrl;
+                    await Logger.info(`✅ Successfully loaded PDF after ${reloadAttempts} reload(s): ${actualPdfUrl}`, 'county-scraper');
+                    contentType = 'application/pdf'; // Force it to be treated as PDF
                   break;
                 }
               }
             }
             
-            if (reloadAttempts >= maxReloads) {
-              await Logger.info(`❌ Failed to load PDF after ${maxReloads} refresh attempts`, 'county-scraper');
-            }
-            
-            if (contentType.includes('pdf') || page.url().includes('.pdf')) {
-              // Direct PDF response
-              actualPdfUrl = page.url();
-              await Logger.info(`📄 Navigated directly to PDF: ${actualPdfUrl}`, 'county-scraper');
-            } else {
-              // Might be a viewer page, look for the actual PDF URL
-              const viewerPdfUrl = await page.evaluate(() => {
+              if (reloadAttempts >= maxReloads) {
+                await Logger.info(`❌ Failed to load PDF after ${maxReloads} refresh attempts`, 'county-scraper');
+              }
+              
+              if (contentType.includes('pdf') || pdfPage.url().includes('.pdf')) {
+                // Direct PDF response
+                actualPdfUrl = pdfPage.url();
+                await Logger.info(`📄 Navigated directly to PDF: ${actualPdfUrl}`, 'county-scraper');
+              } else {
+                // Might be a viewer page, look for the actual PDF URL
+                const viewerPdfUrl = await pdfPage.evaluate(() => {
                 // Check for PDF in iframe
                 const iframe = document.querySelector('iframe');
                 if (iframe?.src) {
@@ -568,14 +576,18 @@ export class PuppeteerCountyScraper extends CountyScraper {
                 return null;
               });
               
-              if (viewerPdfUrl) {
-                actualPdfUrl = viewerPdfUrl;
-                await Logger.info(`📄 Found PDF URL in viewer: ${actualPdfUrl}`, 'county-scraper');
-              } else {
-                // Use current URL if it might be the PDF
-                actualPdfUrl = page.url();
-                await Logger.info(`📄 Using current page URL: ${actualPdfUrl}`, 'county-scraper');
+                if (viewerPdfUrl) {
+                  actualPdfUrl = viewerPdfUrl;
+                  await Logger.info(`📄 Found PDF URL in viewer: ${actualPdfUrl}`, 'county-scraper');
+                } else {
+                  // Use current URL if it might be the PDF
+                  actualPdfUrl = pdfPage.url();
+                  await Logger.info(`📄 Using current page URL: ${actualPdfUrl}`, 'county-scraper');
+                }
               }
+            } finally {
+              // Always close the PDF page to avoid memory leaks
+              await pdfPage.close();
             }
           } else {
             // Fallback to direct PDF URL if Pages link not found
@@ -594,7 +606,11 @@ export class PuppeteerCountyScraper extends CountyScraper {
               recordingNumber,
               recordingDate: lienData.recordingDate ? new Date(lienData.recordingDate) : new Date(),
               documentUrl: actualPdfUrl,
-              pdfBuffer: pdfBuffer // Store the actual PDF data
+              pdfBuffer: pdfBuffer, // Store the actual PDF data
+              grantor: lienData.grantor,
+              grantee: lienData.grantee,
+              address: lienData.address,
+              amount: lienData.amount
             };
             
             liens.push(lienInfo);
@@ -640,10 +656,10 @@ export class PuppeteerCountyScraper extends CountyScraper {
           recordingNumber: lien.recordingNumber,
           recordDate: lien.recordingDate,
           countyId: this.county.id,
-          debtorName: 'To be extracted',
-          debtorAddress: '',
-          amount: '0',
-          creditorName: 'Medical Provider',
+          debtorName: (lien as any).grantor || 'To be extracted',
+          debtorAddress: (lien as any).address || '',
+          amount: ((lien as any).amount || 0).toString(),
+          creditorName: (lien as any).grantee || 'Medical Provider',
           creditorAddress: '',
           documentUrl: lien.documentUrl, // This has the PDF URL
           status: 'pending'

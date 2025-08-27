@@ -106,6 +106,16 @@ export class AirtableService {
 
           const result = await response.json();
           
+          // Update lien status to 'synced' and store Airtable record IDs
+          for (let i = 0; i < result.records.length; i++) {
+            const airtableRecord = result.records[i];
+            const originalLien = liens[batches.indexOf(batch) * 10 + i];
+            if (originalLien && airtableRecord) {
+              await storage.updateLienStatus(originalLien.recordingNumber, 'synced');
+              await storage.updateLienAirtableId(originalLien.recordingNumber, airtableRecord.id);
+            }
+          }
+          
           syncedCount += batch.length;
           await Logger.info(`Synced batch to Airtable: ${batch.length} records`, 'airtable');
           

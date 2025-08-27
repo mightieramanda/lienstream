@@ -16,7 +16,11 @@ export default function Dashboard() {
   const [toDate, setToDate] = useState(today);
 
   // Query automation status to determine if it's running
-  const { data: automationStatus } = useQuery({
+  const { data: automationStatus } = useQuery<{
+    isRunning: boolean;
+    status: string;
+    latestRun?: any;
+  }>({
     queryKey: ['/api/automation/status'],
     refetchInterval: 5000, // Check every 5 seconds
   });
