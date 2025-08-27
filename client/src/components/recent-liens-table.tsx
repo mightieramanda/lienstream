@@ -4,12 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 export function RecentLiensTable() {
   const { data: liens, isLoading } = useQuery<Lien[]>({
@@ -21,8 +15,16 @@ export function RecentLiensTable() {
   const [exportToDate, setExportToDate] = useState('');
   const [showDateRange, setShowDateRange] = useState(false);
   
-  const handleExport = (type: 'all' | 'range') => {
-    if (type === 'range' && (!exportFromDate || !exportToDate)) {
+  const handleExportAll = () => {
+    window.open('/api/liens/export', '_blank');
+    toast({
+      title: "Export Started",
+      description: "Downloading all lien records as CSV."
+    });
+  };
+  
+  const handleExportRange = () => {
+    if (!exportFromDate || !exportToDate) {
       toast({
         title: "Date Range Required",
         description: "Please select both start and end dates for export.",
@@ -32,17 +34,14 @@ export function RecentLiensTable() {
     }
     
     const params = new URLSearchParams();
-    if (type === 'range') {
-      params.append('from', exportFromDate);
-      params.append('to', exportToDate);
-    }
+    params.append('from', exportFromDate);
+    params.append('to', exportToDate);
     
-    const url = `/api/liens/export${params.toString() ? '?' + params.toString() : ''}`;
-    window.open(url, '_blank');
+    window.open(`/api/liens/export?${params.toString()}`, '_blank');
     
     toast({
       title: "Export Started",
-      description: type === 'all' ? "Downloading all lien records as CSV." : `Downloading liens from ${exportFromDate} to ${exportToDate}`,
+      description: `Downloading liens from ${exportFromDate} to ${exportToDate}`
     });
     
     setShowDateRange(false);
@@ -103,23 +102,73 @@ export function RecentLiensTable() {
         <div className="p-6 border-b border-slate-200">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-slate-800">Recent Records</h3>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" data-testid="button-export-menu">
-                  <i className="fas fa-download mr-2"></i>
-                  Export Data
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleExport('all')}>
-                  Export All Records
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowDateRange(true)}>
-                  Export Date Range
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleExportAll}
+                data-testid="button-export-all"
+              >
+                <i className="fas fa-download mr-2"></i>
+                Export All
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowDateRange(!showDateRange)}
+                data-testid="button-toggle-date-range"
+              >
+                <i className="fas fa-calendar mr-2"></i>
+                Date Range
+              </Button>
+            </div>
           </div>
+          {showDateRange && (
+            <div className="mt-4 pt-4 border-t border-slate-200">
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <label className="text-xs text-slate-600 mb-1 block">From Date</label>
+                  <Input
+                    type="date"
+                    value={exportFromDate}
+                    onChange={(e) => setExportFromDate(e.target.value)}
+                    className="h-8"
+                    data-testid="input-export-from-date"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-slate-600 mb-1 block">To Date</label>
+                  <Input
+                    type="date"
+                    value={exportToDate}
+                    onChange={(e) => setExportToDate(e.target.value)}
+                    className="h-8"
+                    data-testid="input-export-to-date"
+                  />
+                </div>
+                <Button 
+                  size="sm"
+                  onClick={handleExportRange}
+                  disabled={!exportFromDate || !exportToDate}
+                  data-testid="button-export-range"
+                >
+                  Export Range
+                </Button>
+                <Button 
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowDateRange(false);
+                    setExportFromDate('');
+                    setExportToDate('');
+                  }}
+                  data-testid="button-cancel-range"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
         <div className="p-12 text-center">
           <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -162,63 +211,74 @@ export function RecentLiensTable() {
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
       <div className="p-6 border-b border-slate-200">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-slate-800">Recent Liens</h3>
+          <h3 className="text-lg font-semibold text-slate-800">Recent Records</h3>
           <div className="flex items-center gap-2">
-            {showDateRange && (
-              <div className="flex items-center gap-2 mr-2 animate-in slide-in-from-right">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleExportAll}
+              data-testid="button-export-all"
+            >
+              <i className="fas fa-download mr-2"></i>
+              Export All
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowDateRange(!showDateRange)}
+              data-testid="button-toggle-date-range"
+            >
+              <i className="fas fa-calendar mr-2"></i>
+              Date Range
+            </Button>
+          </div>
+        </div>
+        {showDateRange && (
+          <div className="mt-4 pt-4 border-t border-slate-200">
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <label className="text-xs text-slate-600 mb-1 block">From Date</label>
                 <Input
                   type="date"
                   value={exportFromDate}
                   onChange={(e) => setExportFromDate(e.target.value)}
-                  className="w-36 h-8 text-sm"
-                  placeholder="From"
+                  className="h-8"
+                  data-testid="input-export-from-date"
                 />
-                <span className="text-slate-500">to</span>
+              </div>
+              <div className="flex-1">
+                <label className="text-xs text-slate-600 mb-1 block">To Date</label>
                 <Input
                   type="date"
                   value={exportToDate}
                   onChange={(e) => setExportToDate(e.target.value)}
-                  className="w-36 h-8 text-sm"
-                  placeholder="To"
+                  className="h-8"
+                  data-testid="input-export-to-date"
                 />
-                <Button 
-                  size="sm" 
-                  variant="default"
-                  onClick={() => handleExport('range')}
-                  data-testid="button-export-range"
-                >
-                  Export
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="ghost"
-                  onClick={() => {setShowDateRange(false); setExportFromDate(''); setExportToDate('');}}
-                  data-testid="button-cancel-range"
-                >
-                  Cancel
-                </Button>
               </div>
-            )}
-            {!showDateRange && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" data-testid="button-export-menu">
-                    <i className="fas fa-download mr-2"></i>
-                    Export Data
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => handleExport('all')}>
-                    Export All Records
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowDateRange(true)}>
-                    Export Date Range
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+              <Button 
+                size="sm"
+                onClick={handleExportRange}
+                disabled={!exportFromDate || !exportToDate}
+                data-testid="button-export-range"
+              >
+                Export Range
+              </Button>
+              <Button 
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setShowDateRange(false);
+                  setExportFromDate('');
+                  setExportToDate('');
+                }}
+                data-testid="button-cancel-range"
+              >
+                Cancel
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full">
