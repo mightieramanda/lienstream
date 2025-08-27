@@ -67,6 +67,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create lien
+  app.post("/api/liens", async (req, res) => {
+    try {
+      const lien = await storage.createLien(req.body);
+      res.json(lien);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create lien" });
+    }
+  });
+
   // Recent liens
   app.get("/api/liens/recent", async (req, res) => {
     try {
