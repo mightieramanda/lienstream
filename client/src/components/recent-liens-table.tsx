@@ -5,15 +5,33 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 
+interface PaginatedResponse {
+  liens: Lien[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+  };
+}
+
 export function RecentLiensTable() {
-  const { data: liens, isLoading } = useQuery<Lien[]>({
-    queryKey: ['/api/liens/recent'],
+  const [currentPage, setCurrentPage] = useState(1);
+  const { data, isLoading } = useQuery<PaginatedResponse>({
+    queryKey: ['/api/liens/recent', currentPage],
+    queryFn: async () => {
+      const response = await fetch(`/api/liens/recent?page=${currentPage}&limit=10`);
+      return response.json();
+    },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
   const { toast } = useToast();
   const [exportFromDate, setExportFromDate] = useState('');
   const [exportToDate, setExportToDate] = useState('');
   const [showDateRange, setShowDateRange] = useState(false);
+  
+  const liens = data?.liens || [];
+  const pagination = data?.pagination;
   
   const handleExportAll = () => {
     window.open('/api/liens/export', '_blank');
@@ -351,6 +369,66 @@ export function RecentLiensTable() {
           </tbody>
         </table>
       </div>
+      {pagination && pagination.totalPages > 1 && (
+        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+          <div className="text-sm text-slate-600">
+            Showing {((currentPage - 1) * pagination.limit) + 1} to{' '}
+            {Math.min(currentPage * pagination.limit, pagination.totalCount)} of{' '}
+            {pagination.totalCount} records
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="transition-all duration-200"
+              data-testid="button-previous-page"
+            >
+              <i className="fas fa-chevron-left mr-1"></i>
+              Previous
+            </Button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                let pageNum;
+                if (pagination.totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= pagination.totalPages - 2) {
+                  pageNum = pagination.totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={pageNum === currentPage ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className="min-w-[36px] transition-all duration-200"
+                    data-testid={`button-page-${pageNum}`}
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage === pagination.totalPages}
+              className="transition-all duration-200"
+              data-testid="button-next-page"
+            >
+              Next
+              <i className="fas fa-chevron-right ml-1"></i>
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

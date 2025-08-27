@@ -77,12 +77,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Recent liens
+  // Recent liens with pagination
   app.get("/api/liens/recent", async (req, res) => {
     try {
+      const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
-      const liens = await storage.getRecentLiens(limit);
-      res.json(liens);
+      const offset = (page - 1) * limit;
+      
+      // Get total count
+      const allLiens = await storage.getRecentLiens(100000);
+      const totalCount = allLiens.length;
+      
+      // Get paginated results
+      const liens = allLiens.slice(offset, offset + limit);
+      
+      res.json({
+        liens,
+        pagination: {
+          page,
+          limit,
+          totalCount,
+          totalPages: Math.ceil(totalCount / limit)
+        }
+      });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch recent liens" });
     }
