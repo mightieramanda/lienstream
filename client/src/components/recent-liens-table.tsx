@@ -83,7 +83,6 @@ export function RecentLiensTable() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Record Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Recording Number</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">County</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">PDF Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Sync Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
               </tr>
@@ -94,7 +93,6 @@ export function RecentLiensTable() {
                   <td className="px-6 py-4 whitespace-nowrap"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
                   <td className="px-6 py-4 whitespace-nowrap"><div className="h-4 bg-slate-200 rounded w-32"></div></td>
                   <td className="px-6 py-4 whitespace-nowrap"><div className="h-4 bg-slate-200 rounded w-24"></div></td>
-                  <td className="px-6 py-4 whitespace-nowrap"><div className="h-6 bg-slate-200 rounded-full w-20"></div></td>
                   <td className="px-6 py-4 whitespace-nowrap"><div className="h-6 bg-slate-200 rounded-full w-16"></div></td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex space-x-2">
@@ -312,7 +310,6 @@ export function RecentLiensTable() {
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Record Date</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Recording Number</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">County</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">PDF Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Sync Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
             </tr>
@@ -328,24 +325,6 @@ export function RecentLiensTable() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900" data-testid={`text-county-${lien.recordingNumber}`}>
                   {lien.county || 'Maricopa County'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap" data-testid={`pdf-status-${lien.recordingNumber}`}>
-                  {lien.downloadedPdfPath ? (
-                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                      <i className="fas fa-check-circle mr-1"></i>
-                      Downloaded
-                    </span>
-                  ) : lien.documentUrl ? (
-                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                      <i className="fas fa-cloud mr-1"></i>
-                      Available
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                      <i className="fas fa-times-circle mr-1"></i>
-                      Not Found
-                    </span>
-                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap" data-testid={`sync-status-${lien.recordingNumber}`}>
                   {getStatusBadge(lien.status)}
