@@ -76,6 +76,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to create lien" });
     }
   });
+  
+  // Retry sync for a specific lien
+  app.post("/api/liens/:id/retry-sync", async (req, res) => {
+    try {
+      const lienId = req.params.id;
+      const lien = await storage.getLien(lienId);
+      
+      if (!lien) {
+        return res.status(404).json({ error: "Lien not found" });
+      }
+      
+      if (lien.status === 'synced') {
+        return res.json({ message: "Lien already synced" });
+      }
+      
+      if (!lien.documentUrl) {
+        return res.status(400).json({ error: "No PDF available for this lien" });
+      }
+      
+      // Import AirtableService and sync the single lien
+      const { AirtableService } = await import("./services/airtable");
+      const airtableService = new AirtableService();
+      
+      // Transform lien to Airtable format
+      const lienForAirtable = {
+        recordingNumber: lien.recordingNumber,
+        recordingDate: lien.recordDate,
+        documentUrl: lien.documentUrl,
+        countyId: '1', // Default county ID
+        status: 'pending'
+      };
+      
+      // Sync to Airtable
+      await airtableService.syncLiensToAirtable([lienForAirtable]);
+      
+      // Update lien status
+      await storage.updateLienStatus(lien.recordingNumber, 'synced');
+      
+      await storage.createSystemLog({
+        level: "info",
+        message: `Retry sync successful for lien ${lien.recordingNumber}`,
+        component: "api"
+      });
+      
+      res.json({ success: true, message: "Lien synced successfully" });
+    } catch (error) {
+      await storage.createSystemLog({
+        level: "error",
+        message: `Retry sync failed for lien ${req.params.id}: ${error}`,
+        component: "api"
+      });
+      res.status(500).json({ error: "Failed to retry sync" });
+    }
+  });
 
   // Recent liens with pagination
   app.get("/api/liens/recent", async (req, res) => {

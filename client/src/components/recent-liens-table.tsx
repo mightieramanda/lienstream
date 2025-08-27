@@ -81,10 +81,10 @@ export function RecentLiensTable() {
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Record Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Document</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Debtor</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Recording Number</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">County</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">PDF Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Sync Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -93,16 +93,13 @@ export function RecentLiensTable() {
                 <tr key={i} className="animate-pulse">
                   <td className="px-6 py-4 whitespace-nowrap"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
                   <td className="px-6 py-4 whitespace-nowrap"><div className="h-4 bg-slate-200 rounded w-32"></div></td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="h-4 bg-slate-200 rounded w-24 mb-1"></div>
-                    <div className="h-3 bg-slate-200 rounded w-36"></div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap"><div className="h-4 bg-slate-200 rounded w-16"></div></td>
+                  <td className="px-6 py-4 whitespace-nowrap"><div className="h-4 bg-slate-200 rounded w-24"></div></td>
+                  <td className="px-6 py-4 whitespace-nowrap"><div className="h-6 bg-slate-200 rounded-full w-20"></div></td>
                   <td className="px-6 py-4 whitespace-nowrap"><div className="h-6 bg-slate-200 rounded-full w-16"></div></td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex space-x-2">
-                      <div className="h-8 w-8 bg-slate-200 rounded"></div>
-                      <div className="h-8 w-8 bg-slate-200 rounded"></div>
+                      <div className="h-8 w-20 bg-slate-200 rounded"></div>
+                      <div className="h-8 w-24 bg-slate-200 rounded"></div>
                     </div>
                   </td>
                 </tr>
@@ -313,10 +310,10 @@ export function RecentLiensTable() {
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Record Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Document</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Debtor</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Recording Number</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">County</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">PDF Status</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Sync Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
@@ -326,41 +323,86 @@ export function RecentLiensTable() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900" data-testid={`text-record-date-${lien.recordingNumber}`}>
                   {new Date(lien.recordDate).toLocaleDateString()}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900" data-testid={`text-document-number-${lien.recordingNumber}`}>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900" data-testid={`text-recording-number-${lien.recordingNumber}`}>
                   {lien.recordingNumber}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-slate-900" data-testid={`text-debtor-name-${lien.recordingNumber}`}>
-                    {lien.debtorName}
-                  </div>
-                  {lien.debtorAddress && (
-                    <div className="text-sm text-slate-500" data-testid={`text-debtor-address-${lien.recordingNumber}`}>
-                      {lien.debtorAddress}
-                    </div>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900" data-testid={`text-county-${lien.recordingNumber}`}>
+                  {lien.county || 'Maricopa County'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap" data-testid={`pdf-status-${lien.recordingNumber}`}>
+                  {lien.downloadedPdfPath ? (
+                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                      <i className="fas fa-check-circle mr-1"></i>
+                      Downloaded
+                    </span>
+                  ) : lien.documentUrl ? (
+                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                      <i className="fas fa-cloud mr-1"></i>
+                      Available
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                      <i className="fas fa-times-circle mr-1"></i>
+                      Not Found
+                    </span>
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900" data-testid={`text-amount-${lien.recordingNumber}`}>
-                  {formatAmount(lien.amount)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap" data-testid={`status-${lien.recordingNumber}`}>
+                <td className="px-6 py-4 whitespace-nowrap" data-testid={`sync-status-${lien.recordingNumber}`}>
                   {getStatusBadge(lien.status)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <div className="flex items-center space-x-2">
                     {lien.documentUrl && (
-                      <a 
-                        href={lien.documentUrl}
-                        target="_blank"
-                        className="text-blue-600 hover:text-blue-700"
-                        data-testid={`link-view-pdf-${lien.recordingNumber}`}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => window.open(lien.documentUrl, '_blank')}
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        data-testid={`button-view-pdf-${lien.recordingNumber}`}
                       >
                         <i className="fas fa-file-pdf"></i>
-                      </a>
+                        <span className="ml-1">View PDF</span>
+                      </Button>
                     )}
-                    {!lien.documentUrl && (
-                      <span className="text-slate-400">
-                        <i className="fas fa-file-pdf"></i>
-                      </span>
+                    {lien.status !== 'synced' && lien.documentUrl && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          toast({
+                            title: "Retrying Sync",
+                            description: `Attempting to sync lien ${lien.recordingNumber} to Airtable...`
+                          });
+                          try {
+                            const response = await fetch(`/api/liens/${lien.id}/retry-sync`, { method: 'POST' });
+                            if (response.ok) {
+                              toast({
+                                title: "Sync Successful",
+                                description: `Lien ${lien.recordingNumber} has been synced to Airtable.`
+                              });
+                              // Refetch data
+                              window.location.reload();
+                            } else {
+                              toast({
+                                title: "Sync Failed", 
+                                description: "Please check the logs for more details.",
+                                variant: "destructive"
+                              });
+                            }
+                          } catch (error) {
+                            toast({
+                              title: "Sync Error",
+                              description: "Failed to retry sync. Please try again later.",
+                              variant: "destructive"
+                            });
+                          }
+                        }}
+                        className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                        data-testid={`button-retry-sync-${lien.recordingNumber}`}
+                      >
+                        <i className="fas fa-sync"></i>
+                        <span className="ml-1">Retry Sync</span>
+                      </Button>
                     )}
                   </div>
                 </td>
