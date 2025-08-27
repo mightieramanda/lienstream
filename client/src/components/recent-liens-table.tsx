@@ -107,21 +107,21 @@ export function RecentLiensTable() {
                 variant="outline" 
                 size="sm" 
                 onClick={handleExportAll}
-                className="flex items-center justify-center gap-2 transition-all duration-200 hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:shadow-md"
+                className="flex items-center justify-center transition-all duration-200 border-blue-500 hover:bg-blue-500 hover:text-white hover:shadow-md"
                 data-testid="button-export-all"
               >
-                <i className="fas fa-download"></i>
-                <span>Export All</span>
+                <i className="fas fa-download mr-1"></i>
+                Export All
               </Button>
               <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={() => setShowDateRange(!showDateRange)}
-                className={`flex items-center justify-center gap-2 transition-all duration-200 ${showDateRange ? 'bg-blue-500 text-white border-blue-500' : 'hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:shadow-md'}`}
+                className={`flex items-center justify-center transition-all duration-200 ${showDateRange ? 'bg-blue-500 text-white border-blue-500' : 'border-blue-500 hover:bg-blue-500 hover:text-white hover:shadow-md'}`}
                 data-testid="button-toggle-date-range"
               >
-                <i className="fas fa-calendar"></i>
-                <span>Date Range</span>
+                <i className="fas fa-calendar mr-1"></i>
+                Date Range
               </Button>
             </div>
           </div>
@@ -222,21 +222,21 @@ export function RecentLiensTable() {
               variant="outline" 
               size="sm" 
               onClick={handleExportAll}
-              className="flex items-center justify-center gap-2 transition-all duration-200 hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:shadow-md"
+              className="flex items-center justify-center transition-all duration-200 border-blue-500 hover:bg-blue-500 hover:text-white hover:shadow-md"
               data-testid="button-export-all"
             >
-              <i className="fas fa-download"></i>
-              <span>Export All</span>
+              <i className="fas fa-download mr-1"></i>
+              Export All
             </Button>
             <Button 
               variant="outline" 
               size="sm" 
               onClick={() => setShowDateRange(!showDateRange)}
-              className={`flex items-center justify-center gap-2 transition-all duration-200 ${showDateRange ? 'bg-blue-500 text-white border-blue-500' : 'hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:shadow-md'}`}
+              className={`flex items-center justify-center transition-all duration-200 ${showDateRange ? 'bg-blue-500 text-white border-blue-500' : 'border-blue-500 hover:bg-blue-500 hover:text-white hover:shadow-md'}`}
               data-testid="button-toggle-date-range"
             >
-              <i className="fas fa-calendar"></i>
-              <span>Date Range</span>
+              <i className="fas fa-calendar mr-1"></i>
+              Date Range
             </Button>
           </div>
         </div>

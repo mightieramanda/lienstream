@@ -182,7 +182,7 @@ export function ScheduleSettings() {
         <Button 
           onClick={handleUpdateSchedule}
           disabled={isLoading}
-          className="w-full"
+          className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium shadow-lg shadow-blue-500/25 transition-all hover:shadow-xl hover:shadow-blue-500/30"
           data-testid="button-update-schedule"
         >
           {isLoading ? "Updating..." : "Update Schedule"}
