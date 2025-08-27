@@ -1,6 +1,6 @@
 # Overview
 
-LienStream is a medical lien automation platform that scrapes, processes, and manages liens from county recorder websites (specifically Maricopa County). The system automatically discovers liens over $20,000, enriches debtor information, syncs data to Airtable for CRM management, and triggers direct mail marketing campaigns. Built as a full-stack web application with automated scheduling and comprehensive monitoring capabilities.
+LienStream is a medical lien automation platform that scrapes, processes, and manages liens from county recorder websites (specifically Maricopa County). The system automatically discovers liens, downloads PDFs, syncs data to Airtable for CRM management, and triggers direct mail marketing campaigns. Built as a full-stack web application with automated scheduling and comprehensive monitoring capabilities. The system processes exactly 129 liens per run (first page results) with proper pagination controls to prevent excessive processing.
 
 # User Preferences
 

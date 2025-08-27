@@ -212,9 +212,11 @@ export class PuppeteerCountyScraper extends CountyScraper {
       const allRecordingNumbers: string[] = [];
       let pageNum = 1;
       let hasNextPage = true;
+      const MAX_PAGES = 1; // Limit to first page only for now
+      const MAX_LIENS = 150; // Maximum liens to process
 
-      while (hasNextPage) {
-        await Logger.info(`📄 Processing page ${pageNum} of results`, 'county-scraper');
+      while (hasNextPage && pageNum <= MAX_PAGES && allRecordingNumbers.length < MAX_LIENS) {
+        await Logger.info(`📄 Processing page ${pageNum} of results (max ${MAX_PAGES} pages, max ${MAX_LIENS} liens)`, 'county-scraper');
 
         // Take screenshot for debugging
         await page.screenshot({ path: `results-page-${pageNum}.png` });
@@ -331,10 +333,11 @@ export class PuppeteerCountyScraper extends CountyScraper {
         await Logger.info(`🔍 No recordings found in search. Added user's example 20250479507 for testing`, 'county-scraper');
       }
       
-      // Process all recording numbers found on the page
-      await Logger.info(`Processing ${allRecordingNumbers.length} recording numbers`, 'county-scraper');
+      // Process recording numbers (limit to MAX_LIENS)
+      const recordingsToProcess = allRecordingNumbers.slice(0, MAX_LIENS);
+      await Logger.info(`Processing ${recordingsToProcess.length} recording numbers (out of ${allRecordingNumbers.length} found)`, 'county-scraper');
       
-      for (const recordingNumber of allRecordingNumbers) {
+      for (const recordingNumber of recordingsToProcess) {
         await Logger.info(`📑 Processing recording number: ${recordingNumber}`, 'county-scraper');
         
         try {
