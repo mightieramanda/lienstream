@@ -94,7 +94,12 @@ export class SchedulerService {
     const minute = parseInt(parts[0]);
     const hour = parseInt(parts[1]);
     
-    const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+    // Convert to 12-hour format with AM/PM
+    const isPM = hour >= 12;
+    let displayHour = hour % 12;
+    if (displayHour === 0) displayHour = 12; // Handle midnight (0) and noon (12)
+    
+    const timeStr = `${displayHour}:${minute.toString().padStart(2, '0')} ${isPM ? 'PM' : 'AM'}`;
     return `daily runs at ${timeStr}`;
   }
 
