@@ -78,14 +78,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Export liens as CSV
+  app.get("/api/liens/export", async (req, res) => {
+    try {
+      const from = req.query.from as string;
+      const to = req.query.to as string;
+      
+      let liens;
+      if (from && to) {
+        // Get liens within date range
+        const allLiens = await storage.getRecentLiens(100000); // Get all liens
+        const fromDate = new Date(from);
+        const toDate = new Date(to);
+        toDate.setHours(23, 59, 59, 999); // Include entire end day
+        
+        liens = allLiens.filter(lien => {
+          const lienDate = new Date(lien.recordDate);
+          return lienDate >= fromDate && lienDate <= toDate;
+        });
+      } else {
+        // Get all liens
+        liens = await storage.getRecentLiens(100000);
+      }
+      
+      // Convert to CSV
+      const headers = ['Recording Number', 'Record Date', 'Debtor Name', 'Debtor Address', 'Amount', 'Creditor Name', 'Status', 'Document URL'];
+      const csvRows = [headers.join(',')];
+      
+      for (const lien of liens) {
+        const row = [
+          lien.recordingNumber,
+          new Date(lien.recordDate).toLocaleDateString(),
+          `"${lien.debtorName || ''}"`,
+          `"${lien.debtorAddress || ''}"`,
+          lien.amount,
+          `"${lien.creditorName || ''}"`,
+          lien.status,
+          lien.documentUrl || ''
+        ];
+        csvRows.push(row.join(','));
+      }
+      
+      const csv = csvRows.join('\n');
+      const filename = from && to ? `liens_${from}_to_${to}.csv` : `liens_export_${new Date().toISOString().split('T')[0]}.csv`;
+      
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.status(200).send(csv);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to export liens" });
+    }
+  });
+
   // System logs
   app.get("/api/logs", async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 20;
-      const logs = await storage.getRecentSystemLogs(limit);
+      const date = req.query.date as string;
+      
+      let logs;
+      if (date) {
+        // Filter logs by date
+        const allLogs = await storage.getRecentSystemLogs(10000); // Get many logs
+        const targetDate = new Date(date);
+        logs = allLogs.filter(log => {
+          const logDate = new Date(log.timestamp);
+          return logDate.toDateString() === targetDate.toDateString();
+        });
+      } else {
+        logs = await storage.getRecentSystemLogs(limit);
+      }
+      
       res.json(logs);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch system logs" });
+    }
+  });
+
+  // Export logs as CSV
+  app.get("/api/logs/export", async (req, res) => {
+    try {
+      const date = req.query.date as string;
+      
+      let logs;
+      if (date) {
+        // Filter logs by date
+        const allLogs = await storage.getRecentSystemLogs(100000);
+        const targetDate = new Date(date);
+        logs = allLogs.filter(log => {
+          const logDate = new Date(log.timestamp);
+          return logDate.toDateString() === targetDate.toDateString();
+        });
+      } else {
+        // Get all logs
+        logs = await storage.getRecentSystemLogs(100000);
+      }
+      
+      // Convert to CSV
+      const headers = ['Timestamp', 'Level', 'Message', 'Component'];
+      const csvRows = [headers.join(',')];
+      
+      for (const log of logs) {
+        const row = [
+          new Date(log.timestamp).toLocaleString(),
+          log.level,
+          `"${(log.message || '').replace(/"/g, '""')}"`,
+          log.component || ''
+        ];
+        csvRows.push(row.join(','));
+      }
+      
+      const csv = csvRows.join('\n');
+      const filename = date ? `logs_${date}.csv` : `logs_export_${new Date().toISOString().split('T')[0]}.csv`;
+      
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.status(200).send(csv);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to export logs" });
     }
   });
 

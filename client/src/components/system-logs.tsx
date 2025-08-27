@@ -3,10 +3,12 @@ import { SystemLog } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 export function SystemLogs() {
   const [logDate, setLogDate] = useState('');
   const [viewMode, setViewMode] = useState<'all' | 'date'>('all');
+  const { toast } = useToast();
   
   const queryKey = viewMode === 'date' && logDate 
     ? [`/api/logs?date=${logDate}`] 
@@ -16,6 +18,31 @@ export function SystemLogs() {
     queryKey,
     refetchInterval: 10000, // Refresh every 10 seconds
   });
+
+  const handleExportAll = () => {
+    window.open('/api/logs/export', '_blank');
+    toast({
+      title: "Export Started",
+      description: "Downloading all system logs as CSV."
+    });
+  };
+
+  const handleExportByDate = () => {
+    if (!logDate) {
+      toast({
+        title: "Date Required",
+        description: "Please select a date to export logs.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    window.open(`/api/logs/export?date=${logDate}`, '_blank');
+    toast({
+      title: "Export Started",
+      description: `Downloading logs for ${logDate}`
+    });
+  };
 
   if (isLoading) {
     return (
@@ -100,27 +127,37 @@ export function SystemLogs() {
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-slate-800">System Activity</h3>
           <div className="flex items-center gap-2">
+            <Button 
+              size="sm" 
+              variant="outline"
+              className="flex items-center justify-center transition-all duration-200 border-blue-500 hover:bg-blue-500 hover:text-white hover:shadow-md"
+              onClick={handleExportAll}
+              data-testid="button-export-all-logs"
+            >
+              <i className="fas fa-download mr-1"></i>
+              Export All
+            </Button>
             <div className="flex items-center gap-2">
-              <Button 
-                size="sm" 
-                variant="outline"
-                className="flex items-center justify-center transition-all duration-200 border-blue-500 hover:bg-blue-500 hover:text-white hover:shadow-md"
-                onClick={() => { setViewMode('all'); setLogDate(''); }}
-                data-testid="button-view-all-logs"
-              >
-                <i className="fas fa-list mr-1"></i>
-                All Logs
-              </Button>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="date"
-                  value={logDate}
-                  onChange={(e) => { setLogDate(e.target.value); setViewMode('date'); }}
-                  className="w-36 h-8 text-sm"
-                  placeholder="Select date"
-                  data-testid="input-log-date"
-                />
-              </div>
+              <Input
+                type="date"
+                value={logDate}
+                onChange={(e) => { setLogDate(e.target.value); setViewMode('date'); }}
+                className="w-36 h-8 text-sm"
+                placeholder="Select date"
+                data-testid="input-log-date"
+              />
+              {logDate && (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="flex items-center justify-center transition-all duration-200 bg-blue-500 text-white border-blue-500 hover:bg-blue-600"
+                  onClick={handleExportByDate}
+                  data-testid="button-export-by-date"
+                >
+                  <i className="fas fa-file-export mr-1"></i>
+                  Export Date
+                </Button>
+              )}
             </div>
             <Button
               size="sm"
