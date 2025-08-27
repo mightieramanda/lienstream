@@ -113,6 +113,15 @@ export class SchedulerService {
     this.shouldStop = false;
     this.currentScrapers = [];
     
+    // For scheduled runs, automatically use yesterday's date
+    if (type === 'scheduled' && !fromDate && !toDate) {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      fromDate = yesterday.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+      toDate = fromDate; // Same date for both to get just that day's records
+      await Logger.info(`Scheduled run: Processing records from ${fromDate}`, 'scheduler');
+    }
+    
     const runId = await storage.createAutomationRun({
       type,
       status: 'running',
