@@ -9,8 +9,8 @@ export class SchedulerService {
   private airtableService: AirtableService;
   private isRunning = false;
   private scheduledTask: any | null = null;
-  private currentSchedule = '0 6 * * *'; // Default: 6:00 AM daily
-  private currentTimezone = 'PT'; // Default: Pacific Time
+  private currentSchedule = '0 5 * * *'; // Default: 1:00 AM ET (5:00 AM UTC)
+  private currentTimezone = 'ET'; // Default: Eastern Time
   private currentScrapers: PuppeteerCountyScraper[] = [];
   private currentRunId: string | null = null;
   private shouldStop = false;
@@ -24,7 +24,7 @@ export class SchedulerService {
     const savedSchedule = await storage.getScheduleConfig();
     if (savedSchedule) {
       this.currentSchedule = savedSchedule.cronExpression;
-      this.currentTimezone = savedSchedule.timezone || 'PT';
+      this.currentTimezone = savedSchedule.timezone || 'ET';
     }
 
     // Schedule the task
@@ -47,15 +47,13 @@ export class SchedulerService {
     });
   }
 
-  async updateSchedule(hour: number, minute: number, timezone: string = 'PT'): Promise<void> {
+  async updateSchedule(hour: number, minute: number, timezone: string = 'ET'): Promise<void> {
     // Map timezone abbreviations to timezone names
     const timezoneMap: { [key: string]: string } = {
-      'PT': 'America/Los_Angeles',
-      'CT': 'America/Chicago', 
       'ET': 'America/New_York'
     };
     
-    const tzName = timezoneMap[timezone] || 'America/Los_Angeles';
+    const tzName = timezoneMap[timezone] || 'America/New_York';
     
     // Get current date in the specified timezone
     const now = moment.tz(tzName);

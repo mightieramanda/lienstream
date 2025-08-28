@@ -11,13 +11,11 @@ export function ScheduleSettings() {
   const [hour12, setHour12] = useState("6");
   const [minute, setMinute] = useState("0");
   const [period, setPeriod] = useState("AM");
-  const [timezone, setTimezone] = useState("PT");
-  const [currentSchedule, setCurrentSchedule] = useState("6:00 AM PT");
+  const [timezone, setTimezone] = useState("ET");
+  const [currentSchedule, setCurrentSchedule] = useState("6:00 AM ET");
   const [isLoading, setIsLoading] = useState(false);
 
   const timezones = [
-    { value: "PT", label: "Pacific Time (PT)" },
-    { value: "CT", label: "Central Time (CT)" },
     { value: "ET", label: "Eastern Time (ET)" }
   ];
 
@@ -43,8 +41,8 @@ export function ScheduleSettings() {
         setHour12(hour12Value.toString());
         setMinute(data.minute.toString());
         setPeriod(isPM ? "PM" : "AM");
-        setTimezone(data.timezone || "PT");
-        setCurrentSchedule(formatTime12Hour(hour24, data.minute, data.timezone || "PT"));
+        setTimezone(data.timezone || "ET");
+        setCurrentSchedule(formatTime12Hour(hour24, data.minute, data.timezone || "ET"));
       }
     } catch (error) {
       console.error('Failed to fetch schedule:', error);
