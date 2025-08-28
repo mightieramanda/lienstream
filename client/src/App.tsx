@@ -7,14 +7,39 @@ import { Sidebar } from "@/components/sidebar";
 import Dashboard from "@/pages/dashboard";
 import Counties from "@/pages/counties";
 import NotFound from "@/pages/not-found";
+import { Login } from "@/pages/Login";
+import { useAuth } from "@/hooks/useAuth";
 
-function Router() {
+function AuthenticatedApp() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // Show loading state while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
+  // Show dashboard if authenticated
   return (
-    <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/counties" component={Counties} />
-      <Route component={NotFound} />
-    </Switch>
+    <div className="min-h-screen flex bg-slate-50" data-testid="app-container">
+      <Sidebar />
+      <Switch>
+        <Route path="/" component={Dashboard} />
+        <Route path="/counties" component={Counties} />
+        <Route component={NotFound} />
+      </Switch>
+    </div>
   );
 }
 
@@ -23,10 +48,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <div className="min-h-screen flex bg-slate-50" data-testid="app-container">
-          <Sidebar />
-          <Router />
-        </div>
+        <AuthenticatedApp />
       </TooltipProvider>
     </QueryClientProvider>
   );

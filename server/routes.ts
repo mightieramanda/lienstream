@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { authenticate, requireAuth } from "./auth";
 import { SchedulerService } from "./services/scheduler";
 import { Logger } from "./services/logger";
 import { pdfStorage } from "./services/pdf-storage";
@@ -11,11 +12,43 @@ import * as path from 'path';
 const scheduler = new SchedulerService();
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Authentication routes (public)
+  app.post("/api/auth/login", async (req, res) => {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username and password required" });
+    }
+    
+    const userId = await authenticate(username, password);
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+    
+    req.session.userId = userId;
+    res.json({ success: true });
+  });
+  
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Failed to logout" });
+      }
+      res.json({ success: true });
+    });
+  });
+  
+  app.get("/api/auth/check", (req, res) => {
+    res.json({ authenticated: !!req.session.userId });
+  });
+  
+  // Protected routes - add auth middleware
   // Start the scheduler
   scheduler.start();
 
   // Dashboard stats
-  app.get("/api/dashboard/stats", async (req, res) => {
+  app.get("/api/dashboard/stats", requireAuth, async (req, res) => {
     try {
       const stats = await storage.getDashboardStats();
       res.json(stats);
@@ -25,7 +58,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Automation status
-  app.get("/api/automation/status", async (req, res) => {
+  app.get("/api/automation/status", requireAuth, async (req, res) => {
     try {
       const isRunning = scheduler.isAutomationRunning();
       const latestRun = await storage.getLatestAutomationRun();
@@ -41,7 +74,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Manual trigger
-  app.post("/api/automation/trigger", async (req, res) => {
+  app.post("/api/automation/trigger", requireAuth, async (req, res) => {
     try {
       if (scheduler.isAutomationRunning()) {
         return res.status(400).json({ error: "Automation is already running" });
@@ -61,7 +94,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Stop automation
-  app.post("/api/automation/stop", async (req, res) => {
+  app.post("/api/automation/stop", requireAuth, async (req, res) => {
     try {
       await scheduler.stopAutomation();
       res.json({ message: "Automation stop requested" });
@@ -71,7 +104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create lien
-  app.post("/api/liens", async (req, res) => {
+  app.post("/api/liens", requireAuth, async (req, res) => {
     try {
       const lien = await storage.createLien(req.body);
       res.json(lien);
@@ -81,7 +114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Retry sync for a specific lien
-  app.post("/api/liens/:id/retry-sync", async (req, res) => {
+  app.post("/api/liens/:id/retry-sync", requireAuth, async (req, res) => {
     try {
       const lienId = req.params.id;
       const lien = await storage.getLien(lienId);
@@ -135,7 +168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Recent liens with pagination
-  app.get("/api/liens/recent", async (req, res) => {
+  app.get("/api/liens/recent", requireAuth, async (req, res) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
@@ -163,7 +196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Export liens as CSV
-  app.get("/api/liens/export", async (req, res) => {
+  app.get("/api/liens/export", requireAuth, async (req, res) => {
     try {
       const from = req.query.from as string;
       const to = req.query.to as string;
@@ -215,7 +248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // System logs
-  app.get("/api/logs", async (req, res) => {
+  app.get("/api/logs", requireAuth, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 20;
       const date = req.query.date as string;
@@ -240,7 +273,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Export logs as CSV
-  app.get("/api/logs/export", async (req, res) => {
+  app.get("/api/logs/export", requireAuth, async (req, res) => {
     try {
       const date = req.query.date as string;
       
@@ -284,7 +317,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Recent automation runs
-  app.get("/api/automation/runs", async (req, res) => {
+  app.get("/api/automation/runs", requireAuth, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 5;
       const runs = await storage.getRecentAutomationRuns(limit);
@@ -344,7 +377,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Schedule management routes
-  app.get("/api/automation/schedule", async (req, res) => {
+  app.get("/api/automation/schedule", requireAuth, async (req, res) => {
     try {
       const scheduleInfo = await scheduler.getScheduleInfo();
       res.json(scheduleInfo);
@@ -353,7 +386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/automation/schedule", async (req, res) => {
+  app.post("/api/automation/schedule", requireAuth, async (req, res) => {
     try {
       const { hour, minute, timezone = 'ET' } = req.body;
       
@@ -380,7 +413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // County management routes
-  app.get("/api/counties", async (req, res) => {
+  app.get("/api/counties", requireAuth, async (req, res) => {
     try {
       const counties = await storage.getActiveCounties();
       res.json(counties);
@@ -389,7 +422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/counties/states/:state", async (req, res) => {
+  app.get("/api/counties/states/:state", requireAuth, async (req, res) => {
     try {
       const { state } = req.params;
       const counties = await storage.getCountiesByState(state);

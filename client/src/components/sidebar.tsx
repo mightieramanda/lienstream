@@ -2,9 +2,11 @@ import { Link, useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAuth } from "@/hooks/useAuth";
 
 export function Sidebar() {
   const [location] = useLocation();
+  const { logout } = useAuth();
   const [collapsed, setCollapsed] = useState(() => {
     const saved = localStorage.getItem("sidebar-collapsed");
     return saved === "true";
@@ -143,6 +145,8 @@ export function Sidebar() {
                 <button 
                   className="text-slate-400 hover:text-slate-600 text-sm" 
                   data-testid="button-logout"
+                  onClick={logout}
+                  title="Sign Out"
                 >
                   <i className="fas fa-sign-out-alt"></i>
                 </button>
@@ -171,6 +175,8 @@ export function Sidebar() {
             <button 
               className="text-slate-400 hover:text-slate-600" 
               data-testid="button-logout"
+              onClick={logout}
+              title="Sign Out"
             >
               <i className="fas fa-sign-out-alt"></i>
             </button>
