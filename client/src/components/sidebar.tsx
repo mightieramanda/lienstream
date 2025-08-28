@@ -139,8 +139,8 @@ export function Sidebar() {
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
               <div className="flex flex-col items-center space-y-2">
-                <div className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center">
-                  <i className="fas fa-user text-slate-600 text-sm"></i>
+                <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center text-lg">
+                  😊
                 </div>
                 <button 
                   className="text-slate-400 hover:text-slate-600 text-sm" 
@@ -161,8 +161,8 @@ export function Sidebar() {
           </Tooltip>
         ) : (
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center">
-              <i className="fas fa-user text-slate-600 text-sm"></i>
+            <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center text-lg">
+              😊
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-slate-800 truncate" data-testid="user-name">
