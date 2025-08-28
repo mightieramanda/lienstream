@@ -374,7 +374,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const scheduleInfo = await scheduler.getScheduleInfo();
       res.json(scheduleInfo);
     } catch (error) {
-      res.status(500).json({ error: "Failed to update schedule" });
+      console.error("Schedule update error:", error);
+      res.status(500).json({ error: "Failed to update schedule: " + (error instanceof Error ? error.message : String(error)) });
     }
   });
 
