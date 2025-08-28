@@ -21,19 +21,24 @@ export function Login() {
     setIsLoading(true);
 
     try {
-      await apiRequest('/api/auth/login', {
+      const result = await apiRequest('/api/auth/login', {
         method: 'POST',
         body: JSON.stringify({ username, password }),
       });
 
-      toast({
-        title: 'Success',
-        description: 'You have been successfully logged in',
-        variant: 'default',
-      });
+      if (result.success) {
+        toast({
+          title: 'Success',
+          description: 'You have been successfully logged in',
+          variant: 'default',
+        });
 
-      // Reload the page to redirect to dashboard
-      window.location.href = '/';
+        // Reload the page to redirect to dashboard
+        window.location.href = '/';
+      } else {
+        setError('Invalid credentials');
+        setIsLoading(false);
+      }
     } catch (err: any) {
       setError(err.message || 'Invalid credentials');
       setIsLoading(false);
