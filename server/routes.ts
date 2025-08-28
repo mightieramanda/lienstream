@@ -346,7 +346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Schedule management routes
   app.get("/api/automation/schedule", async (req, res) => {
     try {
-      const scheduleInfo = scheduler.getScheduleInfo();
+      const scheduleInfo = await scheduler.getScheduleInfo();
       res.json(scheduleInfo);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch schedule" });
@@ -371,7 +371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       await scheduler.updateSchedule(hour, minute, timezone);
-      const scheduleInfo = scheduler.getScheduleInfo();
+      const scheduleInfo = await scheduler.getScheduleInfo();
       res.json(scheduleInfo);
     } catch (error) {
       res.status(500).json({ error: "Failed to update schedule" });

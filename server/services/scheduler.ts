@@ -1,4 +1,5 @@
 import * as cron from 'node-cron';
+import * as moment from 'moment-timezone';
 import { AirtableService } from './airtable';
 import { Logger } from './logger';
 import { createCountyScraper, PuppeteerCountyScraper } from './county-scraper';
@@ -46,15 +47,30 @@ export class SchedulerService {
   }
 
   async updateSchedule(hour: number, minute: number, timezone: string = 'PT'): Promise<void> {
-    // Create cron expression (minute hour * * *)
-    const cronExpression = `${minute} ${hour} * * *`;
+    // Map timezone abbreviations to timezone names
+    const timezoneMap: { [key: string]: string } = {
+      'PT': 'America/Los_Angeles',
+      'CT': 'America/Chicago', 
+      'ET': 'America/New_York'
+    };
+    
+    const tzName = timezoneMap[timezone] || 'America/Los_Angeles';
+    
+    // Convert the desired time in the selected timezone to UTC
+    const scheduledTime = moment.tz({ hour, minute }, tzName);
+    const utcTime = scheduledTime.utc();
+    const utcHour = utcTime.hour();
+    const utcMinute = utcTime.minute();
+    
+    // Create cron expression using UTC time
+    const cronExpression = `${utcMinute} ${utcHour} * * *`;
     
     // Validate cron expression
     if (!cron.validate(cronExpression)) {
       throw new Error('Invalid schedule time');
     }
 
-    // Update the schedule
+    // Store the original local time for display purposes
     this.currentSchedule = cronExpression;
     this.currentTimezone = timezone;
     
@@ -74,16 +90,39 @@ export class SchedulerService {
     await Logger.info(`Schedule updated to ${scheduleTime} ${timezone}`, 'scheduler');
   }
 
-  getScheduleInfo(): { cronExpression: string; hour: number; minute: number; timezone: string; humanReadable: string } {
-    // Parse the cron expression to get hour and minute
+  async getScheduleInfo(): Promise<{ cronExpression: string; hour: number; minute: number; timezone: string; humanReadable: string }> {
+    // Get the saved schedule config to return the original local time
+    const savedConfig = await storage.getScheduleConfig();
+    
+    if (savedConfig && savedConfig.hour !== undefined && savedConfig.minute !== undefined) {
+      return {
+        cronExpression: this.currentSchedule,
+        hour: savedConfig.hour,
+        minute: savedConfig.minute,
+        timezone: this.currentTimezone,
+        humanReadable: this.getHumanReadableSchedule()
+      };
+    }
+    
+    // Fallback: convert UTC cron time back to local timezone
     const parts = this.currentSchedule.split(' ');
-    const minute = parseInt(parts[0]);
-    const hour = parseInt(parts[1]);
+    const utcMinute = parseInt(parts[0]);
+    const utcHour = parseInt(parts[1]);
+    
+    const timezoneMap: { [key: string]: string } = {
+      'PT': 'America/Los_Angeles',
+      'CT': 'America/Chicago',
+      'ET': 'America/New_York'
+    };
+    
+    const tzName = timezoneMap[this.currentTimezone] || 'America/Los_Angeles';
+    const utcTime = moment.utc().hour(utcHour).minute(utcMinute);
+    const localTime = utcTime.tz(tzName);
     
     return {
       cronExpression: this.currentSchedule,
-      hour,
-      minute,
+      hour: localTime.hour(),
+      minute: localTime.minute(),
       timezone: this.currentTimezone,
       humanReadable: this.getHumanReadableSchedule()
     };
