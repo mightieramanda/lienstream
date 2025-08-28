@@ -50,7 +50,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard stats
   app.get("/api/dashboard/stats", requireAuth, async (req, res) => {
     try {
-      const stats = await storage.getDashboardStats();
+      const date = req.query.date as string; // Optional date parameter
+      const stats = await storage.getDashboardStats(date);
       res.json(stats);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch dashboard stats" });

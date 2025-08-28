@@ -1,4 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "lucide-react";
 
 interface DashboardStats {
   todaysLiens: number;
@@ -8,9 +12,28 @@ interface DashboardStats {
 }
 
 export function StatusCards() {
+  const today = new Date().toISOString().split('T')[0];
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [dateInput, setDateInput] = useState(today);
+  
   const { data: stats, isLoading } = useQuery<DashboardStats>({
-    queryKey: ['/api/dashboard/stats'],
+    queryKey: ['/api/dashboard/stats', selectedDate],
+    queryFn: async () => {
+      const url = selectedDate === today 
+        ? '/api/dashboard/stats'
+        : `/api/dashboard/stats?date=${selectedDate}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch stats');
+      return response.json();
+    },
     refetchInterval: 30000, // Refresh every 30 seconds
+  });
+  
+  const isToday = selectedDate === today;
+  const displayDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
   });
 
   if (isLoading) {
@@ -52,7 +75,7 @@ export function StatusCards() {
       icon: "fas fa-file-medical",
       color: "emerald",
       change: stats.todaysLiens > 0 ? "Active" : "No activity",
-      changeLabel: "today"
+      changeLabel: isToday ? "today" : `on ${new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
     },
     {
       label: "Synced to Airtable",
@@ -60,15 +83,15 @@ export function StatusCards() {
       icon: "fas fa-sync",
       color: "blue",
       change: stats.airtableSynced > 0 ? "Synced" : "Pending",
-      changeLabel: "status"
+      changeLabel: isToday ? "today" : `on ${new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
     },
     {
       label: "Total Processed",
       value: stats.totalProcessed || stats.todaysLiens,
       icon: "fas fa-database",
       color: "amber",
-      change: "All time",
-      changeLabel: "records"
+      change: "Processed",
+      changeLabel: isToday ? "today" : `on ${new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
     },
     {
       label: "PDFs Downloaded",
@@ -76,12 +99,58 @@ export function StatusCards() {
       icon: "fas fa-download",
       color: "purple",
       change: "Complete",
-      changeLabel: "with PDFs"
+      changeLabel: isToday ? "today" : `on ${new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
     }
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+    <div className="space-y-6">
+      {/* Date Filter Header */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800">
+              {isToday ? "Today's Statistics" : `Statistics for ${displayDate}`}
+            </h3>
+            <p className="text-sm text-slate-600 mt-1">
+              {isToday ? "Real-time data for medical liens processed today" : `Historical data for medical liens on ${displayDate}`}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-slate-500" />
+            <Input
+              type="date"
+              value={dateInput}
+              onChange={(e) => setDateInput(e.target.value)}
+              max={today}
+              className="w-40"
+            />
+            <Button
+              onClick={() => setSelectedDate(dateInput)}
+              disabled={dateInput === selectedDate}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              size="sm"
+            >
+              View
+            </Button>
+            {!isToday && (
+              <Button
+                onClick={() => {
+                  setSelectedDate(today);
+                  setDateInput(today);
+                }}
+                variant="outline"
+                size="sm"
+              >
+                Today
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
       {cards.map((card, index) => {
         const bgGradients = {
           emerald: "from-emerald-500 to-emerald-600",
@@ -137,6 +206,7 @@ export function StatusCards() {
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
