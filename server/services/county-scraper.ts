@@ -412,7 +412,10 @@ export class PuppeteerCountyScraper extends CountyScraper {
           });
           
           // Look for the link in the "Pages" column of the table (as user suggested)
-          const pdfPageLink = await page.evaluate(() => {
+          let pdfPageLink: string | null = null;
+          
+          try {
+            pdfPageLink = await page.evaluate(() => {
             // Find the table with document information
             const tables = document.querySelectorAll('table');
             
@@ -476,6 +479,10 @@ export class PuppeteerCountyScraper extends CountyScraper {
             
             return null;
           });
+          } catch (evalError) {
+            await Logger.info(`⚠️ Frame detached for ${recordingNumber}, using fallback PDF URL`, 'county-scraper');
+            // Continue with fallback URL
+          }
           
           let actualPdfUrl: string = '';
           
