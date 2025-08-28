@@ -625,6 +625,28 @@ export class PuppeteerCountyScraper extends CountyScraper {
             
             liens.push(lienInfo);
             await Logger.success(`✅ Downloaded PDF for lien ${recordingNumber} (${pdfBuffer.length} bytes)`, 'county-scraper');
+            
+            // Save lien immediately to database to prevent data loss on restart
+            console.log(`[DEBUG] About to save lien ${recordingNumber} to database`);
+            try {
+              await storage.createLien({
+                recordingNumber: lienInfo.recordingNumber,
+                recordDate: lienInfo.recordingDate,
+                countyId: this.county.id,
+                debtorName: lienInfo.grantor || 'To be extracted',
+                debtorAddress: lienInfo.address || '',
+                amount: (lienInfo.amount || 0).toString(),
+                creditorName: lienInfo.grantee || 'Medical Provider',
+                creditorAddress: '',
+                documentUrl: lienInfo.documentUrl,
+                status: 'pending'
+              });
+              await Logger.info(`💾 Saved lien ${recordingNumber} to database`, 'county-scraper');
+              console.log(`[DEBUG] Successfully saved lien ${recordingNumber}`);
+            } catch (saveError) {
+              console.error(`[DEBUG] Failed to save lien ${recordingNumber}:`, saveError);
+              await Logger.error(`Failed to save lien ${recordingNumber}: ${saveError}`, 'county-scraper');
+            }
           } else {
             await Logger.info(`⏭️ Skipping ${recordingNumber} - PDF download failed`, 'county-scraper');
           }
@@ -641,8 +663,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
       // Store liens for access by scheduler
       this.liens = liens;
       
-      // Save liens to storage for Airtable sync
-      await this.saveLiens(liens);
+      // Note: Liens are now saved immediately after processing to prevent data loss
 
     } catch (error) {
       await Logger.error(`Failed to scrape liens from ${this.county.name}: ${error}`, 'county-scraper');
