@@ -1,28 +1,36 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
-import MemoryStore from "memorystore";
+import connectPgSimple from "connect-pg-simple";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeAdmin } from "./auth";
 
-const MemStore = MemoryStore(session);
+const PgSession = connectPgSimple(session);
 
 const app = express();
+
+// Trust proxy for Replit environment
+app.set('trust proxy', 1);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Session middleware  
+// Session middleware with PostgreSQL store
 app.use(session({
   secret: process.env.SESSION_SECRET || 'lienstream-secret-key-2025',
   resave: false,
   saveUninitialized: false,
-  store: new MemStore({
-    checkPeriod: 86400000 // prune expired entries every 24h
+  store: new PgSession({
+    conString: process.env.DATABASE_URL,
+    tableName: 'sessions',
+    createTableIfMissing: true,
+    ttl: 24 * 60 * 60 // 24 hours
   }),
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production' && process.env.REPLIT_DOMAINS ? true : false,
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: 'lax'
   }
 }));
 
