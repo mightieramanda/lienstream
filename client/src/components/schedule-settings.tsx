@@ -11,22 +11,17 @@ export function ScheduleSettings() {
   const [hour12, setHour12] = useState("6");
   const [minute, setMinute] = useState("0");
   const [period, setPeriod] = useState("AM");
-  const [timezone, setTimezone] = useState("ET");
   const [currentSchedule, setCurrentSchedule] = useState("6:00 AM ET");
   const [isLoading, setIsLoading] = useState(false);
-
-  const timezones = [
-    { value: "ET", label: "Eastern Time (ET)" }
-  ];
 
   useEffect(() => {
     fetchSchedule();
   }, []);
 
-  const formatTime12Hour = (hour24: number, minute: number, tz: string) => {
+  const formatTime12Hour = (hour24: number, minute: number) => {
     const period = hour24 >= 12 ? 'PM' : 'AM';
     const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
-    return `${hour12}:${minute.toString().padStart(2, '0')} ${period} ${tz}`;
+    return `${hour12}:${minute.toString().padStart(2, '0')} ${period} ET`;
   };
 
   const fetchSchedule = async () => {
@@ -41,8 +36,7 @@ export function ScheduleSettings() {
         setHour12(hour12Value.toString());
         setMinute(data.minute.toString());
         setPeriod(isPM ? "PM" : "AM");
-        setTimezone(data.timezone || "ET");
-        setCurrentSchedule(formatTime12Hour(hour24, data.minute, data.timezone || "ET"));
+        setCurrentSchedule(formatTime12Hour(hour24, data.minute));
       }
     } catch (error) {
       console.error('Failed to fetch schedule:', error);
@@ -66,7 +60,7 @@ export function ScheduleSettings() {
         body: JSON.stringify({ 
           hour: hour24, 
           minute: parseInt(minute),
-          timezone: timezone
+          timezone: 'ET'
         })
       });
 
@@ -76,11 +70,11 @@ export function ScheduleSettings() {
       }
 
       const data = await response.json();
-      setCurrentSchedule(formatTime12Hour(data.hour, data.minute, data.timezone || timezone));
+      setCurrentSchedule(formatTime12Hour(data.hour, data.minute));
 
       toast({
         title: "Schedule Updated",
-        description: `Automation will now run daily at ${formatTime12Hour(data.hour, data.minute, data.timezone || timezone)}`,
+        description: `Automation will now run daily at ${formatTime12Hour(data.hour, data.minute)}`,
       });
     } catch (error) {
       toast({
@@ -157,23 +151,6 @@ export function ScheduleSettings() {
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          {/* Timezone Selection */}
-          <div className="space-y-2">
-            <Label htmlFor="timezone">Time Zone</Label>
-            <Select value={timezone} onValueChange={setTimezone}>
-              <SelectTrigger id="timezone" data-testid="select-timezone">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {timezones.map((tz) => (
-                  <SelectItem key={tz.value} value={tz.value}>
-                    {tz.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
         </div>
         
