@@ -297,7 +297,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
       let pageNum = 1;
       let hasNextPage = true;
       const MAX_PAGES = 1; // Limit to first page only for now
-      const MAX_LIENS = 20; // Process in smaller batches for stability
+      const MAX_LIENS = 30; // Balanced batch size
 
       while (hasNextPage && pageNum <= MAX_PAGES && allRecordingNumbers.length < MAX_LIENS) {
         await Logger.info(`📄 Processing page ${pageNum} of results (max ${MAX_PAGES} pages, max ${MAX_LIENS} liens)`, 'county-scraper');
@@ -421,32 +421,43 @@ export class PuppeteerCountyScraper extends CountyScraper {
       const recordingsToProcess = allRecordingNumbers.slice(0, MAX_LIENS);
       await Logger.info(`Processing ${recordingsToProcess.length} recording numbers (out of ${allRecordingNumbers.length} found)`, 'county-scraper');
       
-      for (const recordingNumber of recordingsToProcess) {
-        // Check if browser is still connected
-        if (!this.browser || !this.browser.isConnected()) {
-          await Logger.warning(`Browser disconnected, reinitializing...`, 'county-scraper');
-          await this.cleanup();
-          await this.initialize();
-        }
-        
-        await Logger.info(`📑 Processing recording number: ${recordingNumber}`, 'county-scraper');
-        
-        // Create a new page for each recording to avoid frame detachment issues
-        let recordPage: Page | null = null;
+      // Create a single page for all processing to avoid constant reconnections
+      let recordPage: Page | null = null;
+      let pageCreated = false;
+      
+      for (let i = 0; i < recordingsToProcess.length; i++) {
+        const recordingNumber = recordingsToProcess[i];
+        await Logger.info(`📑 Processing recording number ${i+1}/${recordingsToProcess.length}: ${recordingNumber}`, 'county-scraper');
         
         try {
-          recordPage = await this.browser!.newPage();
+          // Create page only once or if browser disconnected
+          if (!pageCreated || !this.browser || !this.browser.isConnected()) {
+            if (!this.browser || !this.browser.isConnected()) {
+              await Logger.info(`Browser not connected, initializing...`, 'county-scraper');
+              await this.cleanup();
+              await this.initialize();
+            }
+            
+            if (recordPage) {
+              try { await recordPage.close(); } catch (e) {}
+            }
+            
+            recordPage = await this.browser!.newPage();
+            pageCreated = true;
+          }
           
-          // Add a small delay between processing to avoid overwhelming the server
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Increased delay to 1 second
+          // Small delay between liens
+          if (i > 0) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
           
           // Set page timeouts
-          recordPage.setDefaultNavigationTimeout(30000);
-          recordPage.setDefaultTimeout(30000);
+          recordPage.setDefaultNavigationTimeout(15000); // Reduced for faster failures
+          recordPage.setDefaultTimeout(15000);
           
           // Navigate to the document detail page
           const docUrl = `https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataDetail.aspx?rec=${recordingNumber}&suf=&nm=`;
-          await recordPage.goto(docUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+          await recordPage.goto(docUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }); // Faster navigation
           
           // Log the actual URL we're visiting
           await Logger.info(`🔗 Visiting document URL: ${docUrl}`, 'county-scraper');
@@ -791,14 +802,16 @@ export class PuppeteerCountyScraper extends CountyScraper {
           
           // Continue processing other liens even if this one fails
         } finally {
-          // Always close the record page to free resources
-          if (recordPage) {
-            try {
-              await recordPage.close();
-            } catch (closeError) {
-              // Ignore close errors
-            }
-          }
+          // Don't close the page here - reuse it for next lien
+        }
+      }
+      
+      // Clean up the reusable page after all liens are processed
+      if (recordPage) {
+        try {
+          await recordPage.close();
+        } catch (e) {
+          // Ignore close errors
         }
       }
 
