@@ -201,8 +201,8 @@ export class PuppeteerCountyScraper extends CountyScraper {
               '--ignore-certificate-errors',
               '--ignore-certificate-errors-spki-list'
             ],
-            timeout: 60000, // Increase launch timeout to 60 seconds
-            protocolTimeout: 180000, // Increase protocol timeout to 3 minutes for slow connections
+            timeout: 120000, // 2 minutes launch timeout
+            protocolTimeout: 300000, // 5 minutes protocol timeout for slow connections
             ignoreHTTPSErrors: true,
             defaultViewport: {
               width: 1920,
@@ -297,7 +297,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
       let pageNum = 1;
       let hasNextPage = true;
       const MAX_PAGES = 1; // Limit to first page only for now
-      const MAX_LIENS = 30; // Balanced batch size
+      const MAX_LIENS = 20; // Reduced batch size for stability
 
       while (hasNextPage && pageNum <= MAX_PAGES && allRecordingNumbers.length < MAX_LIENS) {
         await Logger.info(`📄 Processing page ${pageNum} of results (max ${MAX_PAGES} pages, max ${MAX_LIENS} liens)`, 'county-scraper');
@@ -430,21 +430,20 @@ export class PuppeteerCountyScraper extends CountyScraper {
         await Logger.info(`📑 Processing recording number ${i+1}/${recordingsToProcess.length}: ${recordingNumber}`, 'county-scraper');
         
         try {
-          // Create page only once or if browser disconnected
-          if (!pageCreated || !this.browser || !this.browser.isConnected()) {
-            if (!this.browser || !this.browser.isConnected()) {
-              await Logger.info(`Browser not connected, initializing...`, 'county-scraper');
-              await this.cleanup();
-              await this.initialize();
-            }
-            
-            if (recordPage) {
-              try { await recordPage.close(); } catch (e) {}
-            }
-            
-            recordPage = await this.browser!.newPage();
-            pageCreated = true;
+          // Reinitialize browser for each lien to avoid protocol timeout issues
+          if (!this.browser || !this.browser.isConnected()) {
+            await Logger.info(`Browser not connected, initializing...`, 'county-scraper');
+            await this.cleanup();
+            await this.initialize();
           }
+          
+          // Create new page for each lien to avoid frame detachment
+          if (recordPage) {
+            try { await recordPage.close(); } catch (e) {}
+          }
+          
+          recordPage = await this.browser!.newPage();
+          pageCreated = true;
           
           // Small delay between liens
           if (i > 0) {
@@ -452,12 +451,12 @@ export class PuppeteerCountyScraper extends CountyScraper {
           }
           
           // Set page timeouts
-          recordPage.setDefaultNavigationTimeout(15000); // Reduced for faster failures
-          recordPage.setDefaultTimeout(15000);
+          recordPage.setDefaultNavigationTimeout(30000); // 30 seconds for navigation
+          recordPage.setDefaultTimeout(30000); // 30 seconds default timeout
           
           // Navigate to the document detail page
           const docUrl = `https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataDetail.aspx?rec=${recordingNumber}&suf=&nm=`;
-          await recordPage.goto(docUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }); // Faster navigation
+          await recordPage.goto(docUrl, { waitUntil: 'networkidle2', timeout: 30000 }); // More stable navigation
           
           // Log the actual URL we're visiting
           await Logger.info(`🔗 Visiting document URL: ${docUrl}`, 'county-scraper');
