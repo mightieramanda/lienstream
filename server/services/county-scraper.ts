@@ -202,7 +202,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
               '--ignore-certificate-errors-spki-list'
             ],
             timeout: 60000, // Increase launch timeout to 60 seconds
-            protocolTimeout: 60000,
+            protocolTimeout: 180000, // Increase protocol timeout to 3 minutes for slow connections
             ignoreHTTPSErrors: true,
             defaultViewport: {
               width: 1920,
@@ -794,7 +794,17 @@ export class PuppeteerCountyScraper extends CountyScraper {
       // Note: Liens are now saved immediately after processing to prevent data loss
 
     } catch (error) {
-      await Logger.error(`Failed to scrape liens from ${this.county.name}: ${error}`, 'county-scraper');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Handle protocol timeout specifically
+      if (errorMessage.includes('Protocol') || errorMessage.includes('protocolTimeout') || errorMessage.includes('Network.enable')) {
+        await Logger.error(`Protocol timeout in ${this.county.name} - browser connection is slow. The protocolTimeout has been increased to 3 minutes.`, 'county-scraper');
+      } else {
+        await Logger.error(`Failed to scrape liens from ${this.county.name}: ${errorMessage}`, 'county-scraper');
+      }
+      
+      // Return empty array instead of throwing to allow automation to continue
+      return liens;
     } finally {
       await page.close();
     }
