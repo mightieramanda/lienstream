@@ -117,7 +117,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
         try {
           const navResponse = await page.goto(pdfUrl, { 
             waitUntil: 'networkidle2',
-            timeout: 15000 
+            timeout: 30000 
           });
           
           if (navResponse && navResponse.ok()) {
@@ -424,16 +424,21 @@ export class PuppeteerCountyScraper extends CountyScraper {
       for (const recordingNumber of recordingsToProcess) {
         await Logger.info(`📑 Processing recording number: ${recordingNumber}`, 'county-scraper');
         
+        // Create a new page for each recording to avoid frame detachment issues
+        const recordPage = await this.browser!.newPage();
+        
         try {
+          // Add a small delay between processing to avoid overwhelming the server
+          await new Promise(resolve => setTimeout(resolve, 500));
           // Navigate to the document detail page
           const docUrl = `https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataDetail.aspx?rec=${recordingNumber}&suf=&nm=`;
-          await page.goto(docUrl, { waitUntil: 'networkidle2', timeout: 15000 });
+          await recordPage.goto(docUrl, { waitUntil: 'networkidle2', timeout: 30000 });
           
           // Log the actual URL we're visiting
           await Logger.info(`🔗 Visiting document URL: ${docUrl}`, 'county-scraper');
           
           // Extract lien information from the page
-          const lienData = await page.evaluate(() => {
+          const lienData = await recordPage.evaluate(() => {
             // Get all text from the page
             const pageText = document.body?.innerText || '';
             
@@ -499,7 +504,10 @@ export class PuppeteerCountyScraper extends CountyScraper {
           let pdfPageLink: string | null = null;
           
           try {
-            pdfPageLink = await page.evaluate(() => {
+            // Wait for table to be loaded to prevent frame detachment
+            await recordPage.waitForSelector('table', { timeout: 5000 }).catch(() => {});
+            
+            pdfPageLink = await recordPage.evaluate(() => {
             // Find the table with document information
             const tables = document.querySelectorAll('table');
             
@@ -564,8 +572,14 @@ export class PuppeteerCountyScraper extends CountyScraper {
             return null;
           });
           } catch (evalError) {
-            await Logger.info(`⚠️ Frame detached for ${recordingNumber}, using fallback PDF URL`, 'county-scraper');
+            // Handle frame detachment gracefully
+            if (evalError instanceof Error && evalError.message.includes('detached')) {
+              await Logger.info(`⚠️ Frame detached for ${recordingNumber}, using fallback PDF URL`, 'county-scraper');
+            } else {
+              await Logger.info(`⚠️ Error finding PDF link for ${recordingNumber}: ${evalError}`, 'county-scraper');
+            }
             // Continue with fallback URL
+            pdfPageLink = null;
           }
           
           let actualPdfUrl: string = '';
@@ -574,13 +588,15 @@ export class PuppeteerCountyScraper extends CountyScraper {
             await Logger.info(`📎 Found Pages column link: ${pdfPageLink}`, 'county-scraper');
             
             // Create a new page for PDF navigation to avoid detached frame errors
-            const pdfPage = await this.browser!.newPage();
+            let pdfPage: Page | null = null;
             
             try {
+              pdfPage = await this.browser!.newPage();
+              
               // Navigate to the page link to get the actual PDF
               const pdfResponse = await pdfPage.goto(pdfPageLink, { 
                 waitUntil: 'networkidle2',
-                timeout: 15000 
+                timeout: 30000 
               });
             
               // Wait a bit for the PDF to be generated/loaded
@@ -600,7 +616,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
                 await new Promise(resolve => setTimeout(resolve, 1000 * reloadAttempts));
                 
                 // Reload the page
-                const reloadResponse = await pdfPage.reload({ waitUntil: 'networkidle2', timeout: 15000 });
+                const reloadResponse = await pdfPage.reload({ waitUntil: 'networkidle2', timeout: 30000 });
                 
                 // Check if we have a PDF now
                 contentType = reloadResponse?.headers()['content-type'] || '';
@@ -679,9 +695,20 @@ export class PuppeteerCountyScraper extends CountyScraper {
                   await Logger.info(`📄 Using current page URL: ${actualPdfUrl}`, 'county-scraper');
                 }
               }
+            } catch (pdfError) {
+              await Logger.error(`Error processing PDF page for ${recordingNumber}: ${pdfError}`, 'county-scraper');
+              // Use fallback URL if PDF page processing fails
+              actualPdfUrl = `https://legacy.recorder.maricopa.gov/UnOfficialDocs/pdf/${recordingNumber}.pdf`;
+              await Logger.info(`Using fallback PDF URL after error: ${actualPdfUrl}`, 'county-scraper');
             } finally {
               // Always close the PDF page to avoid memory leaks
-              await pdfPage.close();
+              if (pdfPage) {
+                try {
+                  await pdfPage.close();
+                } catch (closeError) {
+                  // Ignore close errors
+                }
+              }
             }
           } else {
             // Fallback to direct PDF URL if Pages link not found
@@ -693,7 +720,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
           await Logger.info(`📄 Document ${recordingNumber}: Detail page: ${docUrl}`, 'county-scraper');
           
           // Download the actual PDF
-          const pdfBuffer = await this.downloadPdf(actualPdfUrl, recordingNumber, page);
+          const pdfBuffer = await this.downloadPdf(actualPdfUrl, recordingNumber, recordPage);
           
           if (pdfBuffer) {
             const lienInfo = {
@@ -735,11 +762,26 @@ export class PuppeteerCountyScraper extends CountyScraper {
             await Logger.info(`⏭️ Skipping ${recordingNumber} - PDF download failed`, 'county-scraper');
           }
         } catch (error) {
-          await Logger.error(`Failed to process recording ${recordingNumber}: ${error}`, 'county-scraper');
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          
+          // Log specific error types differently to help debugging
+          if (errorMessage.includes('TimeoutError') || errorMessage.includes('Navigation timeout')) {
+            await Logger.warning(`⏱️ Timeout processing ${recordingNumber} (server may be slow) - continuing with next lien`, 'county-scraper');
+          } else if (errorMessage.includes('detached') || errorMessage.includes('Frame')) {
+            await Logger.warning(`🔄 Frame issue with ${recordingNumber} (page structure changed) - continuing with next lien`, 'county-scraper');
+          } else {
+            await Logger.error(`Failed to process recording ${recordingNumber}: ${errorMessage}`, 'county-scraper');
+          }
+          
+          // Continue processing other liens even if this one fails
+        } finally {
+          // Always close the record page to free resources
+          try {
+            await recordPage.close();
+          } catch (closeError) {
+            // Ignore close errors
+          }
         }
-        
-        // Small delay to simulate processing
-        await new Promise(resolve => setTimeout(resolve, 500));
       }
 
       await Logger.success(`🎯 Found ${liens.length} liens with valid PDFs in ${this.county.name}`, 'county-scraper');
