@@ -41,7 +41,11 @@ Basic user management is implemented through the users table, though the current
 
 ## Web Scraping Infrastructure  
 - **Puppeteer**: Headless Chrome automation for scraping Maricopa County recorder websites
-- **Node-cron**: Task scheduling for automated daily scraping runs
+  - Fixed timeout issues with dynamic Chrome detection and retry logic
+  - 60-second timeout with 3 retry attempts for browser launch
+  - Special configuration for Replit/container environments
+- **Chromium**: System dependency installed for reliable browser automation
+- **Node-cron**: Task scheduling for automated daily scraping runs at 1:00 AM ET
 
 ## External API Integrations
 - **Airtable API**: CRM integration for lead management, requiring AIRTABLE_API_KEY and AIRTABLE_BASE_ID configuration

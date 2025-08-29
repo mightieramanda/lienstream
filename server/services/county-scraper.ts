@@ -143,19 +143,103 @@ export class PuppeteerCountyScraper extends CountyScraper {
 
   async initialize() {
     try {
-      this.browser = await puppeteer.launch({
-        headless: true,
-        executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--disable-gpu',
-          '--window-size=1920x1080',
-          '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36'
-        ]
-      });
+      // Try to find Chrome/Chromium executable
+      const { execSync } = require('child_process');
+      let executablePath: string | undefined;
+      
+      try {
+        // Try to find chromium or chrome in the system
+        const possiblePaths = [
+          'chromium',
+          'chromium-browser',
+          'google-chrome',
+          'google-chrome-stable',
+          '/usr/bin/chromium',
+          '/usr/bin/chromium-browser',
+          '/usr/bin/google-chrome',
+          '/usr/bin/google-chrome-stable'
+        ];
+        
+        for (const path of possiblePaths) {
+          try {
+            const result = execSync(`which ${path}`, { encoding: 'utf8' }).trim();
+            if (result) {
+              executablePath = result;
+              await Logger.info(`Found Chrome/Chromium at: ${executablePath}`, 'county-scraper');
+              break;
+            }
+          } catch {
+            // Continue to next path
+          }
+        }
+      } catch (error) {
+        await Logger.warning('Could not find Chrome/Chromium in PATH, will let Puppeteer use its bundled version', 'county-scraper');
+      }
+      
+      // Retry logic for browser launch
+      let retries = 3;
+      let lastError: any;
+      
+      while (retries > 0) {
+        try {
+          await Logger.info(`Launching browser... (attempt ${4 - retries}/3)`, 'county-scraper');
+          
+          const launchOptions: any = {
+            headless: true, // Use headless mode for production
+            args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--disable-accelerated-2d-canvas',
+              '--disable-gpu',
+              '--disable-blink-features=AutomationControlled',
+              '--disable-features=IsolateOrigins,site-per-process',
+              '--disable-site-isolation-trials',
+              '--disable-web-security',
+              '--window-size=1920x1080',
+              '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+              '--ignore-certificate-errors',
+              '--ignore-certificate-errors-spki-list'
+            ],
+            timeout: 60000, // Increase launch timeout to 60 seconds
+            protocolTimeout: 60000,
+            ignoreHTTPSErrors: true,
+            defaultViewport: {
+              width: 1920,
+              height: 1080
+            }
+          };
+          
+          // Only set executablePath if we found one
+          if (executablePath) {
+            launchOptions.executablePath = executablePath;
+          }
+          
+          // For Replit/container environments, add extra args
+          if (process.env.REPL_ID || process.env.REPLIT_DEPLOYMENT) {
+            launchOptions.args.push('--single-process');
+            launchOptions.args.push('--no-zygote');
+            launchOptions.args.push('--disable-dev-tools');
+            await Logger.info('Detected Replit environment, added container-specific args', 'county-scraper');
+          }
+          
+          this.browser = await puppeteer.launch(launchOptions);
+          
+          await Logger.success('Browser launched successfully', 'county-scraper');
+          break; // Success, exit retry loop
+        } catch (error) {
+          lastError = error;
+          retries--;
+          if (retries > 0) {
+            await Logger.warning(`Browser launch failed: ${error}, retrying in 5 seconds... (${retries} attempts left)`, 'county-scraper');
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          }
+        }
+      }
+      
+      if (!this.browser) {
+        throw new Error(`Failed to launch browser after 3 attempts: ${lastError?.message || 'Unknown error'}`);
+      }
       await Logger.info(`Puppeteer browser initialized for ${this.county.name}`, 'county-scraper');
     } catch (error) {
       await Logger.error(`Failed to initialize browser for ${this.county.name}: ${error}`, 'county-scraper');
