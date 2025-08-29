@@ -297,7 +297,7 @@ export class PuppeteerCountyScraper extends CountyScraper {
       let pageNum = 1;
       let hasNextPage = true;
       const MAX_PAGES = 1; // Limit to first page only for now
-      const MAX_LIENS = 150; // Maximum liens to process
+      const MAX_LIENS = 20; // Process in smaller batches for stability
 
       while (hasNextPage && pageNum <= MAX_PAGES && allRecordingNumbers.length < MAX_LIENS) {
         await Logger.info(`📄 Processing page ${pageNum} of results (max ${MAX_PAGES} pages, max ${MAX_LIENS} liens)`, 'county-scraper');
@@ -422,14 +422,28 @@ export class PuppeteerCountyScraper extends CountyScraper {
       await Logger.info(`Processing ${recordingsToProcess.length} recording numbers (out of ${allRecordingNumbers.length} found)`, 'county-scraper');
       
       for (const recordingNumber of recordingsToProcess) {
+        // Check if browser is still connected
+        if (!this.browser || !this.browser.isConnected()) {
+          await Logger.warning(`Browser disconnected, reinitializing...`, 'county-scraper');
+          await this.cleanup();
+          await this.initialize();
+        }
+        
         await Logger.info(`📑 Processing recording number: ${recordingNumber}`, 'county-scraper');
         
         // Create a new page for each recording to avoid frame detachment issues
-        const recordPage = await this.browser!.newPage();
+        let recordPage: Page | null = null;
         
         try {
+          recordPage = await this.browser!.newPage();
+          
           // Add a small delay between processing to avoid overwhelming the server
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Increased delay to 1 second
+          
+          // Set page timeouts
+          recordPage.setDefaultNavigationTimeout(30000);
+          recordPage.setDefaultTimeout(30000);
+          
           // Navigate to the document detail page
           const docUrl = `https://legacy.recorder.maricopa.gov/recdocdata/GetRecDataDetail.aspx?rec=${recordingNumber}&suf=&nm=`;
           await recordPage.goto(docUrl, { waitUntil: 'networkidle2', timeout: 30000 });
@@ -778,10 +792,12 @@ export class PuppeteerCountyScraper extends CountyScraper {
           // Continue processing other liens even if this one fails
         } finally {
           // Always close the record page to free resources
-          try {
-            await recordPage.close();
-          } catch (closeError) {
-            // Ignore close errors
+          if (recordPage) {
+            try {
+              await recordPage.close();
+            } catch (closeError) {
+              // Ignore close errors
+            }
           }
         }
       }
