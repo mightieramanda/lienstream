@@ -1,4 +1,5 @@
 import puppeteer, { Browser, Page } from 'puppeteer';
+import { execSync } from 'child_process';
 import { Lien } from '../../shared/schema';
 // OCR no longer needed - just collecting PDF URLs
 // Type definitions
@@ -144,7 +145,6 @@ export class PuppeteerCountyScraper extends CountyScraper {
   async initialize() {
     try {
       // Try to find Chrome/Chromium executable
-      const { execSync } = require('child_process');
       let executablePath: string | undefined;
       
       try {

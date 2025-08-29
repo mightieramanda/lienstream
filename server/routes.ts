@@ -77,11 +77,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Manual trigger
   app.post("/api/automation/trigger", requireAuth, async (req, res) => {
     try {
-      if (scheduler.isAutomationRunning()) {
+      const isRunning = scheduler.isAutomationRunning();
+      console.log('[DEBUG] Automation trigger - isRunning:', isRunning);
+      
+      if (isRunning) {
+        console.log('[DEBUG] Automation already running, returning 400');
         return res.status(400).json({ error: "Automation is already running" });
       }
 
       const { fromDate, toDate } = req.body; // Get date range from request body
+      console.log('[DEBUG] Starting automation with dates:', fromDate, toDate);
       
       // Start automation in background with optional date range
       scheduler.runAutomation('manual', fromDate, toDate).catch(error => {
@@ -90,6 +95,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: "Manual automation started" });
     } catch (error) {
+      console.error('[DEBUG] Error in trigger:', error);
       res.status(500).json({ error: "Failed to trigger automation" });
     }
   });

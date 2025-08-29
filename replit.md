@@ -41,9 +41,12 @@ Basic user management is implemented through the users table, though the current
 
 ## Web Scraping Infrastructure  
 - **Puppeteer**: Headless Chrome automation for scraping Maricopa County recorder websites
-  - Fixed timeout issues with dynamic Chrome detection and retry logic
-  - 60-second timeout with 3 retry attempts for browser launch
+  - **RESOLVED**: Fixed critical timeout error "Timed out after 30000 ms" by removing hardcoded Chrome path
+  - **RESOLVED**: Fixed ES module "require is not defined" error by converting to ES6 imports
+  - Dynamic Chrome detection with automatic path discovery
+  - 60-second timeout with 3 retry attempts for browser launch  
   - Special configuration for Replit/container environments
+  - Successfully launches browser and discovers liens (tested with 150+ liens found)
 - **Chromium**: System dependency installed for reliable browser automation
 - **Node-cron**: Task scheduling for automated daily scraping runs at 1:00 AM ET
 

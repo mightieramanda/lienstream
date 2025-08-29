@@ -17,6 +17,8 @@ export class SchedulerService {
 
   constructor() {
     this.airtableService = new AirtableService();
+    // Reset isRunning flag on initialization to ensure clean state
+    this.isRunning = false;
   }
 
   async start() {
@@ -344,6 +346,7 @@ export class SchedulerService {
   }
 
   isAutomationRunning(): boolean {
+    console.log('[DEBUG] isAutomationRunning called, current value:', this.isRunning);
     return this.isRunning;
   }
 
