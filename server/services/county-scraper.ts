@@ -769,6 +769,8 @@ export class PuppeteerCountyScraper extends CountyScraper {
             await Logger.warning(`⏱️ Timeout processing ${recordingNumber} (server may be slow) - continuing with next lien`, 'county-scraper');
           } else if (errorMessage.includes('detached') || errorMessage.includes('Frame')) {
             await Logger.warning(`🔄 Frame issue with ${recordingNumber} (page structure changed) - continuing with next lien`, 'county-scraper');
+          } else if (errorMessage.includes('Protocol error') || errorMessage.includes('Connection closed')) {
+            await Logger.warning(`🔌 Connection lost for ${recordingNumber} - continuing with next lien`, 'county-scraper');
           } else {
             await Logger.error(`Failed to process recording ${recordingNumber}: ${errorMessage}`, 'county-scraper');
           }
